@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>當個創世神 (Minecraft 3D)</title>
+    <title>Minecraft 3D - 完整完整完整重製版</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: 'Microsoft JhengHei', sans-serif;
             user-select: none;
-            background-color: #111;
+            background-color: #000;
         }
         #canvas-container {
             width: 100vw;
@@ -22,33 +22,34 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             transform: translate(-50%, -50%);
             pointer-events: none;
-            color: white;
+            color: rgba(255, 255, 255, 0.8);
             font-size: 24px;
             font-weight: bold;
             text-align: center;
-            line-height: 10px;
+            line-height: 12px;
             z-index: 5;
         }
-        /* 介面提示與說明 */
+        /* 遊戲說明介面 */
         #ui-instruction {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 15px;
+            left: 15px;
             color: white;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 12px 18px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 14px 20px;
             border-radius: 8px;
             pointer-events: none;
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.6;
             z-index: 5;
-            border: 1px solid #444;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
-        /* 下方快捷欄 */
+        /* 下方快捷列 */
         #hotbar {
             position: absolute;
             bottom: 20px;
@@ -63,8 +64,8 @@
             border: 2px solid #555;
         }
         .slot {
-            width: 55px;
-            height: 55px;
+            width: 52px;
+            height: 52px;
             background: rgba(139, 139, 139, 0.4);
             border: 2px solid #333;
             border-radius: 4px;
@@ -80,7 +81,8 @@
         }
         .slot.selected {
             border-color: #fff;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
         }
         .slot-count {
             position: absolute;
@@ -90,7 +92,7 @@
             color: #fff;
             text-shadow: 1px 1px 0px #000;
         }
-        /* 背包/製作台介面 (按 Q 開啟) */
+        /* 背包 / 製作台 介面 */
         #inventory-panel {
             position: absolute;
             top: 50%;
@@ -99,37 +101,56 @@
             background: #c6c6c6;
             border: 4px solid #373737;
             border-radius: 6px;
-            padding: 25px;
+            padding: 24px;
             color: #3f3f3f;
             display: none;
             flex-direction: column;
             align-items: center;
             z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
             font-weight: bold;
         }
         #inventory-panel h2 {
             margin-top: 0;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             color: #222;
-            font-size: 20px;
-            letter-spacing: 1px;
+            font-size: 18px;
+        }
+        .craft-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #b5b5b5;
+            padding: 12px 18px;
+            border-radius: 4px;
+            border: 2px inset #fff;
+            margin-bottom: 15px;
+        }
+        .craft-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 42px);
+            gap: 4px;
+        }
+        .arrow {
+            font-size: 22px;
+            color: #3f3f3f;
         }
         .inv-section {
             display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 6px;
+            margin-bottom: 15px;
         }
         .inv-slot {
-            width: 45px;
-            height: 45px;
+            width: 44px;
+            height: 44px;
             background: #8b8b8b;
             border: 2px solid;
             border-color: #373737 #fff #fff #373737;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 10px;
             color: #fff;
             cursor: pointer;
             position: relative;
@@ -137,41 +158,8 @@
         .inv-slot:hover {
             background: #9b9b9b;
         }
-        .craft-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            background: #b5b5b5;
-            padding: 15px;
-            border-radius: 4px;
-            border: 2px inset #fff;
-            margin-bottom: 15px;
-        }
-        .craft-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 45px);
-            gap: 5px;
-        }
-        .arrow {
-            font-size: 24px;
-            color: #3f3f3f;
-        }
-        .result-slot {
-            width: 50px;
-            height: 50px;
-            background: #8b8b8b;
-            border: 2px solid;
-            border-color: #373737 #fff #fff #373737;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 12px;
-            color: white;
-        }
         #close-inv {
-            margin-top: 10px;
-            padding: 6px 16px;
+            padding: 6px 18px;
             background: #727272;
             color: white;
             border: 2px solid;
@@ -188,16 +176,16 @@
 
     <div id="crosshair">+</div>
     <div id="ui-instruction">
-        <b>⛏️ 當個創世神 (Minecraft 3D)</b><br>
+        <b>🧱 Minecraft 3D 完整重製版</b><br>
         • <b>WASD</b>: 移動<br>
         • <b>空白鍵 (Space)</b>: 跳躍<br>
         • <b>滑鼠左鍵點擊</b>: 鎖定視角 / 挖掘方塊<br>
         • <b>滑鼠右鍵點擊</b>: 放置方塊<br>
-        • <b>Q 鍵</b>: 開啟/關閉 背包與合成介面<br>
-        • <b>數字鍵 1-5</b>: 切換快捷列方塊
+        • <b>Q 鍵</b>: 開啟/關閉 背包與合成台<br>
+        • <b>數字鍵 1-5</b>: 切換物品快捷列
     </div>
 
-    <!-- 快捷列 -->
+    <!-- 下方快捷列 -->
     <div id="hotbar">
         <div class="slot selected" onclick="selectSlot(0)">草皮<div class="slot-count" id="count-0">64</div></div>
         <div class="slot" onclick="selectSlot(1)">泥土<div class="slot-count" id="count-1">64</div></div>
@@ -206,29 +194,31 @@
         <div class="slot" onclick="selectSlot(4)">樹葉<div class="slot-count" id="count-4">64</div></div>
     </div>
 
-    <!-- 背包與合成介面 -->
+    <!-- 背包與製作台介面 -->
     <div id="inventory-panel">
-        <h2>生存背包與合成</h2>
+        <h2>生存背包與 2x2 合成台</h2>
         <div class="craft-container">
-            <div style="font-size: 12px; color:#333;">合成區 (2x2)</div>
+            <div style="font-size: 11px; color:#333;">合成區</div>
             <div class="craft-grid">
-                <div class="inv-slot" onclick="craftItem('wood')">木頭</div>
-                <div class="inv-slot" onclick="craftItem('empty')"></div>
-                <div class="inv-slot" onclick="craftItem('empty')"></div>
-                <div class="inv-slot" onclick="craftItem('empty')"></div>
+                <div class="inv-slot" onclick="clickCraftInput(0)"><span id="c-in-0"></span></div>
+                <div class="inv-slot" onclick="clickCraftInput(1)"><span id="c-in-1"></span></div>
+                <div class="inv-slot" onclick="clickCraftInput(2)"><span id="c-in-2"></span></div>
+                <div class="inv-slot" onclick="clickCraftInput(3)"><span id="c-in-3"></span></div>
             </div>
             <div class="arrow">➔</div>
-            <div class="result-slot" onclick="craftResult()" title="點擊獲得木板/道具">木板</div>
+            <div class="inv-slot" style="width: 48px; height: 48px; background:#7b7b7b;" onclick="craftOutput()" title="點擊領取合成產物">
+                <span id="c-out" style="font-size:11px; font-weight:bold;">無</span>
+            </div>
         </div>
-        <div style="font-size: 12px; margin-bottom: 5px; color:#333;">背包庫存</div>
+        <div style="font-size: 11px; margin-bottom: 6px; color:#333;">背包庫存快速放入合成</div>
         <div class="inv-section">
-            <div class="inv-slot" onclick="selectSlot(0)">草皮</div>
-            <div class="inv-slot" onclick="selectSlot(1)">泥土</div>
-            <div class="inv-slot" onclick="selectSlot(2)">石頭</div>
-            <div class="inv-slot" onclick="selectSlot(3)">木頭</div>
-            <div class="inv-slot" onclick="selectSlot(4)">樹葉</div>
+            <div class="inv-slot" onclick="addToCraft(1)">草皮<div class="slot-count" id="inv-cnt-0">64</div></div>
+            <div class="inv-slot" onclick="addToCraft(2)">泥土<div class="slot-count" id="inv-cnt-1">64</div></div>
+            <div class="inv-slot" onclick="addToCraft(3)">石頭<div class="slot-count" id="inv-cnt-2">64</div></div>
+            <div class="inv-slot" onclick="addToCraft(4)">木頭<div class="slot-count" id="inv-cnt-3">64</div></div>
+            <div class="inv-slot" onclick="addToCraft(5)">樹葉<div class="slot-count" id="inv-cnt-4">64</div></div>
         </div>
-        <button id="close-inv" onclick="toggleInventory()">關閉背包 (或按 Q)</button>
+        <button id="close-inv" onclick="toggleInventory()">關閉背包 (ESC / Q)</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -254,7 +244,11 @@
         const inventory = [64, 64, 64, 64, 64];
         let selectedSlot = 0;
 
-        // 方塊材質定義
+        // 合成台 2x2 狀態
+        let craftSlots = [null, null, null, null];
+        let craftResultItem = null;
+
+        // 方塊類型定義
         const blockTypes = [
             { id: 1, name: '草皮', color: 0x559933, topColor: 0x77cc44 },
             { id: 2, name: '泥土', color: 0x8b5a2b },
@@ -273,7 +267,7 @@
 
             // 1. 場景
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb); // 麥塊明亮天空藍
+            scene.background = new THREE.Color(0x87ceeb);
             scene.fog = new THREE.FogExp2(0x87ceeb, 0.012);
 
             // 2. 相機
@@ -281,7 +275,7 @@
             camera.position.set(0, 6, 12);
 
             // 3. 渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: false }); // 復古無抗锯齒像素風
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
@@ -299,15 +293,15 @@
             blockMaterials = blockTypes.map(type => {
                 if (type.topColor) {
                     return [
-                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
-                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
-                        new THREE.MeshLambertMaterial({ color: type.topColor, wireframe: false }),
-                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
-                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
-                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false })
+                        new THREE.MeshLambertMaterial({ color: type.color }),
+                        new THREE.MeshLambertMaterial({ color: type.color }),
+                        new THREE.MeshLambertMaterial({ color: type.topColor }),
+                        new THREE.MeshLambertMaterial({ color: type.color }),
+                        new THREE.MeshLambertMaterial({ color: type.color }),
+                        new THREE.MeshLambertMaterial({ color: type.color })
                     ];
                 } else {
-                    return new THREE.MeshLambertMaterial({ color: type.color, wireframe: false });
+                    return new THREE.MeshLambertMaterial({ color: type.color });
                 }
             });
 
@@ -321,7 +315,7 @@
         }
 
         const blockSize = 1;
-        const worldSize = 18;
+        const worldSize = 16;
 
         function generateWorld() {
             const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
@@ -333,12 +327,11 @@
                     createBlock(x, 0, z, 1, geometry);
 
                     // 隨機生成樹木
-                    if (Math.abs(x) + Math.abs(z) > 4 && Math.random() < 0.04) {
+                    if (Math.abs(x) + Math.abs(z) > 4 && Math.random() < 0.035) {
                         let h = Math.floor(Math.random() * 3) + 3;
                         for (let y = 1; y <= h; y++) {
                             createBlock(x, y, z, 4, geometry);
                         }
-                        // 樹冠葉子
                         for (let lx = -1; lx <= 1; lx++) {
                             for (let lz = -1; lz <= 1; lz++) {
                                 for (let ly = h - 1; ly <= h + 1; ly++) {
@@ -417,14 +410,18 @@
                     const intersect = intersects[0];
                     if (intersect.distance < 8) {
                         if (e.button === 0) {
-                            // 左鍵：挖掘
+                            // 左鍵：挖掘方塊
                             const pos = intersect.object.position;
                             const key = `${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`;
-                            removeBlock(key);
-                            inventory[selectedSlot]++;
-                            updateInventoryUI();
+                            const blockData = blocks[key];
+                            if (blockData) {
+                                const typeId = blockData.type;
+                                removeBlock(key);
+                                inventory[typeId - 1]++;
+                                updateInventoryUI();
+                            }
                         } else if (e.button === 2) {
-                            // 右鍵：放置
+                            // 右鍵：放置方塊
                             if (inventory[selectedSlot] > 0) {
                                 const position = new THREE.Vector3().copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
                                 const x = Math.round(position.x);
@@ -445,14 +442,17 @@
 
             window.addEventListener('contextmenu', e => e.preventDefault());
 
-            // 數字鍵切換
+            // 快捷切換與背包開關
             window.addEventListener('keydown', (e) => {
                 if (e.key >= '1' && e.key <= '5') {
                     selectSlot(parseInt(e.key) - 1);
                 }
-                // 按 Q 鍵切換背包
-                if (e.code === 'KeyQ') {
-                    toggleInventory();
+                if (e.code === 'KeyQ' || e.code === 'KeyE' || e.code === 'Escape') {
+                    if (isInventoryOpen) {
+                        toggleInventory();
+                    } else if (e.code === 'KeyQ' || e.code === 'KeyE') {
+                        toggleInventory();
+                    }
                 }
             });
         }
@@ -498,17 +498,75 @@
         function updateInventoryUI() {
             for (let i = 0; i < inventory.length; i++) {
                 document.getElementById(`count-${i}`).innerText = inventory[i];
+                document.getElementById(`inv-cnt-${i}`).innerText = inventory[i];
             }
         }
 
-        // 簡易合成台邏輯示範
-        function craftItem(type) {
-            alert('已放入合成區！點擊右側箭頭旁的方塊即可完成合成。');
+        // 合成台互動邏輯
+        function addToCraft(typeId) {
+            if (inventory[typeId - 1] > 0) {
+                inventory[typeId - 1]--;
+                // 找第一個空的合成格放進去
+                for (let i = 0; i < 4; i++) {
+                    if (craftSlots[i] === null) {
+                        craftSlots[i] = typeId;
+                        break;
+                    }
+                }
+                updateInventoryUI();
+                updateCraftUI();
+            }
         }
-        function craftResult() {
-            inventory[3] += 4; // 合成獲得木材
-            updateInventoryUI();
-            alert('成功合成 4 個木頭！');
+
+        function clickCraftInput(index) {
+            if (craftSlots[index] !== null) {
+                inventory[craftSlots[index] - 1]++;
+                craftSlots[index] = null;
+                updateInventoryUI();
+                updateCraftUI();
+            }
+        }
+
+        function updateCraftUI() {
+            for (let i = 0; i < 4; i++) {
+                const el = document.getElementById(`c-in-${i}`);
+                if (craftSlots[i] !== null) {
+                    el.innerText = blockTypes[craftSlots[i] - 1].name;
+                } else {
+                    el.innerText = '';
+                }
+            }
+
+            // 簡易合成規則：
+            // 4個木頭 (id 4) = 1個特別道具或加倍木頭，或任何相同方塊滿格轉化
+            let woodCount = craftSlots.filter(s => s === 4).length;
+            let stoneCount = craftSlots.filter(s => s === 3).length;
+            let dirtCount = craftSlots.filter(s => s === 2).length;
+
+            const outEl = document.getElementById('c-out');
+            if (woodCount === 4) {
+                craftResultItem = { type: 4, count: 8, name: '木頭x8' };
+                outEl.innerText = '木頭x8';
+            } else if (stoneCount === 4) {
+                craftResultItem = { type: 3, count: 8, name: '石頭x8' };
+                outEl.innerText = '石頭x8';
+            } else if (dirtCount >= 2) {
+                craftResultItem = { type: 1, count: 4, name: '草皮x4' };
+                outEl.innerText = '草皮x4';
+            } else {
+                craftResultItem = null;
+                outEl.innerText = '無';
+            }
+        }
+
+        function craftOutput() {
+            if (craftResultItem) {
+                inventory[craftResultItem.type - 1] += craftResultItem.count;
+                craftSlots = [null, null, null, null];
+                craftResultItem = null;
+                updateInventoryUI();
+                updateCraftUI();
+            }
         }
 
         function onWindowResize() {
