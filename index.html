@@ -2,20 +2,24 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft 3D - 完整完整完整重製版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Minecraft 3D - 修復黑屏版</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             font-family: 'Microsoft JhengHei', sans-serif;
             user-select: none;
-            background-color: #000;
+            background-color: #87ceeb;
         }
         #canvas-container {
             width: 100vw;
             height: 100vh;
             display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
         /* 準心 */
         #crosshair {
@@ -26,12 +30,12 @@
             height: 12px;
             transform: translate(-50%, -50%);
             pointer-events: none;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.9);
             font-size: 24px;
             font-weight: bold;
             text-align: center;
             line-height: 12px;
-            z-index: 5;
+            z-index: 10;
         }
         /* 遊戲說明介面 */
         #ui-instruction {
@@ -45,7 +49,7 @@
             pointer-events: none;
             font-size: 13px;
             line-height: 1.6;
-            z-index: 5;
+            z-index: 10;
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
@@ -60,7 +64,7 @@
             padding: 6px;
             border-radius: 10px;
             gap: 6px;
-            z-index: 5;
+            z-index: 10;
             border: 2px solid #555;
         }
         .slot {
@@ -167,16 +171,13 @@
             cursor: pointer;
             font-weight: bold;
         }
-        #close-inv:active {
-            border-color: #373737 #fff #fff #373737;
-        }
     </style>
 </head>
 <body>
 
     <div id="crosshair">+</div>
     <div id="ui-instruction">
-        <b>🧱 Minecraft 3D 完整重製版</b><br>
+        <b>🧱 Minecraft 3D (修復版)</b><br>
         • <b>WASD</b>: 移動<br>
         • <b>空白鍵 (Space)</b>: 跳躍<br>
         • <b>滑鼠左鍵點擊</b>: 鎖定視角 / 挖掘方塊<br>
@@ -244,11 +245,9 @@
         const inventory = [64, 64, 64, 64, 64];
         let selectedSlot = 0;
 
-        // 合成台 2x2 狀態
         let craftSlots = [null, null, null, null];
         let craftResultItem = null;
 
-        // 方塊類型定義
         const blockTypes = [
             { id: 1, name: '草皮', color: 0x559933, topColor: 0x77cc44 },
             { id: 2, name: '泥土', color: 0x8b5a2b },
@@ -259,8 +258,12 @@
 
         let blockMaterials = [];
 
-        init();
-        animate();
+        try {
+            init();
+            animate();
+        } catch (e) {
+            alert("遊戲初始化失敗: " + e.message);
+        }
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -274,19 +277,19 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 6, 12);
 
-            // 3. 渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: false });
+            // 3. 渲染器 (加入裝置畫素比，解決行動裝置黑屏與模糊)
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.enabled = false; // 關閉陰影以大幅提升流暢度與相容性
             container.appendChild(renderer.domElement);
 
             // 4. 光照
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
 
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
             directionalLight.position.set(40, 100, 40);
-            directionalLight.castShadow = true;
             scene.add(directionalLight);
 
             // 5. 材質初始化
@@ -305,7 +308,7 @@
                 }
             });
 
-            // 6. 生成初始世界
+            // 6. 生成初始世界 (適度縮减範圍確保秒開不黑屏)
             generateWorld();
 
             raycaster = new THREE.Raycaster();
@@ -315,7 +318,7 @@
         }
 
         const blockSize = 1;
-        const worldSize = 16;
+        const worldSize = 12; // 調整為最佳化大小
 
         function generateWorld() {
             const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
@@ -326,8 +329,7 @@
                     createBlock(x, -1, z, 2, geometry);
                     createBlock(x, 0, z, 1, geometry);
 
-                    // 隨機生成樹木
-                    if (Math.abs(x) + Math.abs(z) > 4 && Math.random() < 0.035) {
+                    if (Math.abs(x) + Math.abs(z) > 3 && Math.random() < 0.03) {
                         let h = Math.floor(Math.random() * 3) + 3;
                         for (let y = 1; y <= h; y++) {
                             createBlock(x, y, z, 4, geometry);
@@ -353,8 +355,6 @@
             const material = blockMaterials[typeId - 1];
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
             scene.add(mesh);
 
             blocks[key] = { mesh: mesh, type: typeId };
@@ -399,7 +399,6 @@
             document.addEventListener('keydown', (e) => handleKeyEvent(e, true));
             document.addEventListener('keyup', (e) => handleKeyEvent(e, false));
 
-            // 滑鼠挖掘與放置
             window.addEventListener('mousedown', (e) => {
                 if (!isLocked || isInventoryOpen) return;
 
@@ -410,7 +409,6 @@
                     const intersect = intersects[0];
                     if (intersect.distance < 8) {
                         if (e.button === 0) {
-                            // 左鍵：挖掘方塊
                             const pos = intersect.object.position;
                             const key = `${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`;
                             const blockData = blocks[key];
@@ -421,7 +419,6 @@
                                 updateInventoryUI();
                             }
                         } else if (e.button === 2) {
-                            // 右鍵：放置方塊
                             if (inventory[selectedSlot] > 0) {
                                 const position = new THREE.Vector3().copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
                                 const x = Math.round(position.x);
@@ -442,7 +439,6 @@
 
             window.addEventListener('contextmenu', e => e.preventDefault());
 
-            // 快捷切換與背包開關
             window.addEventListener('keydown', (e) => {
                 if (e.key >= '1' && e.key <= '5') {
                     selectSlot(parseInt(e.key) - 1);
@@ -461,7 +457,7 @@
             isInventoryOpen = !isInventoryOpen;
             const panel = document.getElementById('inventory-panel');
             if (isInventoryOpen) {
-                document.exitPointerLock();
+                try { document.exitPointerLock(); } catch(e){}
                 panel.style.display = 'flex';
             } else {
                 panel.style.display = 'none';
@@ -502,11 +498,9 @@
             }
         }
 
-        // 合成台互動邏輯
         function addToCraft(typeId) {
             if (inventory[typeId - 1] > 0) {
                 inventory[typeId - 1]--;
-                // 找第一個空的合成格放進去
                 for (let i = 0; i < 4; i++) {
                     if (craftSlots[i] === null) {
                         craftSlots[i] = typeId;
@@ -537,8 +531,6 @@
                 }
             }
 
-            // 簡易合成規則：
-            // 4個木頭 (id 4) = 1個特別道具或加倍木頭，或任何相同方塊滿格轉化
             let woodCount = craftSlots.filter(s => s === 4).length;
             let stoneCount = craftSlots.filter(s => s === 3).length;
             let dirtCount = craftSlots.filter(s => s === 2).length;
