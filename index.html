@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Minecraft 3D - 修復黑屏版</title>
+    <title>Minecraft 3D - 完美執行版</title>
     <style>
         body {
             margin: 0;
@@ -177,7 +177,7 @@
 
     <div id="crosshair">+</div>
     <div id="ui-instruction">
-        <b>🧱 Minecraft 3D (修復版)</b><br>
+        <b>🧱 Minecraft 3D 完美版</b><br>
         • <b>WASD</b>: 移動<br>
         • <b>空白鍵 (Space)</b>: 跳躍<br>
         • <b>滑鼠左鍵點擊</b>: 鎖定視角 / 挖掘方塊<br>
@@ -227,6 +227,10 @@
     <!-- 載入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+        // 提前宣告常數，避免初始化錯誤
+        const blockSize = 1;
+        const worldSize = 12;
+
         let scene, camera, renderer;
         let blocks = {};
         let raycaster;
@@ -277,11 +281,11 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 6, 12);
 
-            // 3. 渲染器 (加入裝置畫素比，解決行動裝置黑屏與模糊)
+            // 3. 渲染器
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = false; // 關閉陰影以大幅提升流暢度與相容性
+            renderer.shadowMap.enabled = false;
             container.appendChild(renderer.domElement);
 
             // 4. 光照
@@ -308,7 +312,7 @@
                 }
             });
 
-            // 6. 生成初始世界 (適度縮减範圍確保秒開不黑屏)
+            // 6. 生成初始世界
             generateWorld();
 
             raycaster = new THREE.Raycaster();
@@ -316,9 +320,6 @@
 
             window.addEventListener('resize', onWindowResize);
         }
-
-        const blockSize = 1;
-        const worldSize = 12; // 調整為最佳化大小
 
         function generateWorld() {
             const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
