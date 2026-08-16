@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>貓麥塊 (Cat Minecraft 3D)</title>
+    <title>當個創世神 (Minecraft 3D)</title>
     <style>
         body {
             margin: 0;
@@ -27,10 +27,11 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             color: white;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             text-align: center;
             line-height: 10px;
+            z-index: 5;
         }
         /* 介面提示與說明 */
         #ui-instruction {
@@ -38,12 +39,14 @@
             top: 10px;
             left: 10px;
             color: white;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 18px;
             border-radius: 8px;
             pointer-events: none;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.6;
+            z-index: 5;
+            border: 1px solid #444;
         }
         /* 下方快捷欄 */
         #hotbar {
@@ -52,62 +55,132 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 5px;
-            border-radius: 8px;
-            gap: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px;
+            border-radius: 10px;
+            gap: 6px;
+            z-index: 5;
+            border: 2px solid #555;
         }
         .slot {
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid #555;
+            width: 55px;
+            height: 55px;
+            background: rgba(139, 139, 139, 0.4);
+            border: 2px solid #333;
             border-radius: 4px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             position: relative;
         }
         .slot.selected {
-            border-color: #ffcc00;
-            background: rgba(255, 204, 0, 0.2);
+            border-color: #fff;
+            background: rgba(255, 255, 255, 0.2);
         }
         .slot-count {
             position: absolute;
             bottom: 2px;
             right: 4px;
-            font-size: 10px;
+            font-size: 11px;
             color: #fff;
+            text-shadow: 1px 1px 0px #000;
         }
-        /* 製作台介面 */
-        #crafting-panel {
+        /* 背包/製作台介面 (按 Q 開啟) */
+        #inventory-panel {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(30, 30, 30, 0.95);
-            border: 3px solid #666;
-            border-radius: 10px;
-            padding: 20px;
-            color: white;
+            background: #c6c6c6;
+            border: 4px solid #373737;
+            border-radius: 6px;
+            padding: 25px;
+            color: #3f3f3f;
             display: none;
             flex-direction: column;
             align-items: center;
-            z-index: 10;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            font-weight: bold;
         }
-        #crafting-panel h3 {
+        #inventory-panel h2 {
             margin-top: 0;
-            color: #ffcc00;
+            margin-bottom: 20px;
+            color: #222;
+            font-size: 20px;
+            letter-spacing: 1px;
         }
-        .crafting-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 50px);
-            gap: 5px;
+        .inv-section {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .inv-slot {
+            width: 45px;
+            height: 45px;
+            background: #8b8b8b;
+            border: 2px solid;
+            border-color: #373737 #fff #fff #373737;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #fff;
+            cursor: pointer;
+            position: relative;
+        }
+        .inv-slot:hover {
+            background: #9b9b9b;
+        }
+        .craft-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #b5b5b5;
+            padding: 15px;
+            border-radius: 4px;
+            border: 2px inset #fff;
             margin-bottom: 15px;
+        }
+        .craft-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 45px);
+            gap: 5px;
+        }
+        .arrow {
+            font-size: 24px;
+            color: #3f3f3f;
+        }
+        .result-slot {
+            width: 50px;
+            height: 50px;
+            background: #8b8b8b;
+            border: 2px solid;
+            border-color: #373737 #fff #fff #373737;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: white;
+        }
+        #close-inv {
+            margin-top: 10px;
+            padding: 6px 16px;
+            background: #727272;
+            color: white;
+            border: 2px solid;
+            border-color: #fff #373737 #373737 #fff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #close-inv:active {
+            border-color: #373737 #fff #fff #373737;
         }
     </style>
 </head>
@@ -115,21 +188,47 @@
 
     <div id="crosshair">+</div>
     <div id="ui-instruction">
-        <b>🐾 貓麥塊 (Cat Minecraft) 3D</b><br>
+        <b>⛏️ 當個創世神 (Minecraft 3D)</b><br>
         • <b>WASD</b>: 移動<br>
         • <b>空白鍵 (Space)</b>: 跳躍<br>
         • <b>滑鼠左鍵點擊</b>: 鎖定視角 / 挖掘方塊<br>
-        • <b>滑鼠右鍵點擊</b>: 放置方塊 / 互動<br>
-        • <b>數字鍵 1-5</b>: 切換方塊類型<br>
-        • <b>ESC</b>: 解除視角鎖定
+        • <b>滑鼠右鍵點擊</b>: 放置方塊<br>
+        • <b>Q 鍵</b>: 開啟/關閉 背包與合成介面<br>
+        • <b>數字鍵 1-5</b>: 切換快捷列方塊
     </div>
 
+    <!-- 快捷列 -->
     <div id="hotbar">
         <div class="slot selected" onclick="selectSlot(0)">草皮<div class="slot-count" id="count-0">64</div></div>
         <div class="slot" onclick="selectSlot(1)">泥土<div class="slot-count" id="count-1">64</div></div>
         <div class="slot" onclick="selectSlot(2)">石頭<div class="slot-count" id="count-2">64</div></div>
         <div class="slot" onclick="selectSlot(3)">木頭<div class="slot-count" id="count-3">64</div></div>
-        <div class="slot" onclick="selectSlot(4)">貓薄荷石<div class="slot-count" id="count-4">64</div></div>
+        <div class="slot" onclick="selectSlot(4)">樹葉<div class="slot-count" id="count-4">64</div></div>
+    </div>
+
+    <!-- 背包與合成介面 -->
+    <div id="inventory-panel">
+        <h2>生存背包與合成</h2>
+        <div class="craft-container">
+            <div style="font-size: 12px; color:#333;">合成區 (2x2)</div>
+            <div class="craft-grid">
+                <div class="inv-slot" onclick="craftItem('wood')">木頭</div>
+                <div class="inv-slot" onclick="craftItem('empty')"></div>
+                <div class="inv-slot" onclick="craftItem('empty')"></div>
+                <div class="inv-slot" onclick="craftItem('empty')"></div>
+            </div>
+            <div class="arrow">➔</div>
+            <div class="result-slot" onclick="craftResult()" title="點擊獲得木板/道具">木板</div>
+        </div>
+        <div style="font-size: 12px; margin-bottom: 5px; color:#333;">背包庫存</div>
+        <div class="inv-section">
+            <div class="inv-slot" onclick="selectSlot(0)">草皮</div>
+            <div class="inv-slot" onclick="selectSlot(1)">泥土</div>
+            <div class="inv-slot" onclick="selectSlot(2)">石頭</div>
+            <div class="inv-slot" onclick="selectSlot(3)">木頭</div>
+            <div class="inv-slot" onclick="selectSlot(4)">樹葉</div>
+        </div>
+        <button id="close-inv" onclick="toggleInventory()">關閉背包 (或按 Q)</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -138,31 +237,30 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let scene, camera, renderer;
-        let blocks = {}; // 儲存方塊位置與類型
-        let raycaster, mouse;
+        let blocks = {};
+        let raycaster;
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         let velocity = new THREE.Vector3();
         let direction = new THREE.Vector3();
         let prevTime = performance.now();
+        let isInventoryOpen = false;
 
-        // 玩家狀態
         const player = {
             height: 1.6,
-            speed: 10.0,
-            jumpSpeed: 12.0
+            speed: 12.0,
+            jumpSpeed: 10.0
         };
 
-        // 物品欄數量
         const inventory = [64, 64, 64, 64, 64];
         let selectedSlot = 0;
 
-        // 方塊材質定義 (顏色與名稱)
+        // 方塊材質定義
         const blockTypes = [
             { id: 1, name: '草皮', color: 0x559933, topColor: 0x77cc44 },
             { id: 2, name: '泥土', color: 0x8b5a2b },
             { id: 3, name: '石頭', color: 0x888888 },
             { id: 4, name: '木頭', color: 0x5c4033 },
-            { id: 5, name: '貓薄荷石', color: 0x9966cc }
+            { id: 5, name: '樹葉', color: 0x336622 }
         ];
 
         let blockMaterials = [];
@@ -173,79 +271,82 @@
         function init() {
             const container = document.getElementById('canvas-container');
 
-            // 1. 場景設定
+            // 1. 場景
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xcce0ff);
-            scene.fog = new THREE.FogExp2(0xcce0ff, 0.015);
+            scene.background = new THREE.Color(0x87ceeb); // 麥塊明亮天空藍
+            scene.fog = new THREE.FogExp2(0x87ceeb, 0.012);
 
-            // 2. 相機設定
+            // 2. 相機
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 5, 10);
+            camera.position.set(0, 6, 12);
 
             // 3. 渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: false }); // 復古無抗锯齒像素風
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
             // 4. 光照
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(50, 100, 50);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(40, 100, 40);
             directionalLight.castShadow = true;
             scene.add(directionalLight);
 
-            // 5. 初始化方塊材質
+            // 5. 材質初始化
             blockMaterials = blockTypes.map(type => {
                 if (type.topColor) {
                     return [
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.topColor }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color })
+                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
+                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
+                        new THREE.MeshLambertMaterial({ color: type.topColor, wireframe: false }),
+                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
+                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false }),
+                        new THREE.MeshLambertMaterial({ color: type.color, wireframe: false })
                     ];
                 } else {
-                    return new THREE.MeshLambertMaterial({ color: type.color });
+                    return new THREE.MeshLambertMaterial({ color: type.color, wireframe: false });
                 }
             });
 
-            // 6. 產生初始世界 (平坦草地與簡單地形)
+            // 6. 生成初始世界
             generateWorld();
 
-            // 7. 射線與滑鼠控制
             raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2(0, 0);
-
             setupControls();
 
-            // 視窗縮放事件
             window.addEventListener('resize', onWindowResize);
         }
 
-        // 產生世界地圖
         const blockSize = 1;
-        const worldSize = 16;
+        const worldSize = 18;
 
         function generateWorld() {
             const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
 
             for (let x = -worldSize; x < worldSize; x++) {
                 for (let z = -worldSize; z < worldSize; z++) {
-                    // 地面底層 (石頭)
                     createBlock(x, -2, z, 3, geometry);
                     createBlock(x, -1, z, 2, geometry);
-                    // 頂層草地
                     createBlock(x, 0, z, 1, geometry);
 
-                    // 隨機生成一些樹木或小山丘
-                    if (Math.abs(x) + Math.abs(z) > 5 && Math.random() < 0.05) {
-                        let h = Math.floor(Math.random() * 3) + 1;
+                    // 隨機生成樹木
+                    if (Math.abs(x) + Math.abs(z) > 4 && Math.random() < 0.04) {
+                        let h = Math.floor(Math.random() * 3) + 3;
                         for (let y = 1; y <= h; y++) {
                             createBlock(x, y, z, 4, geometry);
+                        }
+                        // 樹冠葉子
+                        for (let lx = -1; lx <= 1; lx++) {
+                            for (let lz = -1; lz <= 1; lz++) {
+                                for (let ly = h - 1; ly <= h + 1; ly++) {
+                                    if (Math.abs(lx) !== 1 || Math.abs(lz) !== 1 || ly !== h + 1) {
+                                        createBlock(x + lx, ly, z + lz, 5, geometry);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -273,7 +374,6 @@
             }
         }
 
-        // 控制系統 (PointerLock 視角與鍵盤移動)
         let isLocked = false;
         const Euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
@@ -281,7 +381,7 @@
             const canvas = renderer.domElement;
 
             canvas.addEventListener('click', () => {
-                if (!isLocked) {
+                if (!isLocked && !isInventoryOpen) {
                     canvas.requestPointerLock();
                 }
             });
@@ -291,10 +391,10 @@
             });
 
             document.addEventListener('mousemove', (event) => {
-                if (!isLocked) return;
+                if (!isLocked || isInventoryOpen) return;
 
-                const movementX = event.movementX || event.moouseX || 0;
-                const movementY = event.movementY || event.moouseY || 0;
+                const movementX = event.movementX || 0;
+                const movementY = event.movementY || 0;
 
                 Euler.setFromQuaternion(camera.quaternion);
                 Euler.y -= movementX * 0.002;
@@ -303,30 +403,28 @@
                 camera.quaternion.setFromEuler(Euler);
             });
 
-            // 鍵盤事件
             document.addEventListener('keydown', (e) => handleKeyEvent(e, true));
             document.addEventListener('keyup', (e) => handleKeyEvent(e, false));
 
-            // 滑鼠點擊挖掘與放置
+            // 滑鼠挖掘與放置
             window.addEventListener('mousedown', (e) => {
-                if (!isLocked) return;
+                if (!isLocked || isInventoryOpen) return;
 
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
                 const intersects = raycaster.intersectObjects(scene.children);
 
                 if (intersects.length > 0) {
                     const intersect = intersects[0];
-
-                    if (intersect.distance < 8) { // 互動距離
+                    if (intersect.distance < 8) {
                         if (e.button === 0) {
-                            // 左鍵：挖掘方塊
+                            // 左鍵：挖掘
                             const pos = intersect.object.position;
                             const key = `${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`;
                             removeBlock(key);
                             inventory[selectedSlot]++;
                             updateInventoryUI();
                         } else if (e.button === 2) {
-                            // 右鍵：放置方塊
+                            // 右鍵：放置
                             if (inventory[selectedSlot] > 0) {
                                 const position = new THREE.Vector3().copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
                                 const x = Math.round(position.x);
@@ -345,18 +443,33 @@
                 }
             });
 
-            // 阻止右鍵選單
             window.addEventListener('contextmenu', e => e.preventDefault());
 
-            // 數字鍵切換道具欄
+            // 數字鍵切換
             window.addEventListener('keydown', (e) => {
                 if (e.key >= '1' && e.key <= '5') {
                     selectSlot(parseInt(e.key) - 1);
                 }
+                // 按 Q 鍵切換背包
+                if (e.code === 'KeyQ') {
+                    toggleInventory();
+                }
             });
         }
 
+        function toggleInventory() {
+            isInventoryOpen = !isInventoryOpen;
+            const panel = document.getElementById('inventory-panel');
+            if (isInventoryOpen) {
+                document.exitPointerLock();
+                panel.style.display = 'flex';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
         function handleKeyEvent(e, isDown) {
+            if (isInventoryOpen) return;
             switch (e.code) {
                 case 'KeyW': moveForward = isDown; break;
                 case 'KeyS': moveBackward = isDown; break;
@@ -388,23 +501,32 @@
             }
         }
 
+        // 簡易合成台邏輯示範
+        function craftItem(type) {
+            alert('已放入合成區！點擊右側箭頭旁的方塊即可完成合成。');
+        }
+        function craftResult() {
+            inventory[3] += 4; // 合成獲得木材
+            updateInventoryUI();
+            alert('成功合成 4 個木頭！');
+        }
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 遊戲主迴圈
         function animate() {
             requestAnimationFrame(animate);
 
             const time = performance.now();
             const delta = (time - prevTime) / 1000;
 
-            if (isLocked) {
+            if (isLocked && !isInventoryOpen) {
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= 9.8 * 4.0 * delta; // 重力
+                velocity.y -= 9.8 * 3.5 * delta;
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
@@ -413,10 +535,6 @@
                 if (moveForward || moveBackward) velocity.z -= direction.z * player.speed * delta * 10;
                 if (moveLeft || moveRight) velocity.x -= direction.x * player.speed * delta * 10;
 
-                camera.translateX(-velocity.x * delta);
-                camera.translateZ(velocity.y > 0 ? 0 : 0); // 簡易移動簡化
-                
-                // 簡易上下左右移動
                 const actualMoveX = -velocity.x * delta;
                 const actualMoveZ = -velocity.z * delta;
                 camera.position.x += actualMoveX * Math.cos(Euler.y) - actualMoveZ * Math.sin(Euler.y);
@@ -424,7 +542,6 @@
 
                 camera.position.y += (velocity.y * delta);
 
-                // 地面碰撞檢測 (簡單版)
                 if (camera.position.y < 2.5) {
                     velocity.y = 0;
                     camera.position.y = 2.5;
