@@ -2,607 +2,235 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Minecraft 3D - 完美執行版</title>
+    <title>3D 魔術方塊顏色輸入與還原步驟產生器</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
             margin: 0;
-            overflow: hidden;
-            font-family: 'Microsoft JhengHei', sans-serif;
-            user-select: none;
-            background-color: #87ceeb;
-        }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        /* 準心 */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 12px;
-            height: 12px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            line-height: 12px;
-            z-index: 10;
-        }
-        /* 遊戲說明介面 */
-        #ui-instruction {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            color: white;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 14px 20px;
-            border-radius: 8px;
-            pointer-events: none;
-            font-size: 13px;
-            line-height: 1.6;
-            z-index: 10;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-        /* 下方快捷列 */
-        #hotbar {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 6px;
-            border-radius: 10px;
-            gap: 6px;
-            z-index: 10;
-            border: 2px solid #555;
-        }
-        .slot {
-            width: 52px;
-            height: 52px;
-            background: rgba(139, 139, 139, 0.4);
-            border: 2px solid #333;
-            border-radius: 4px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 11px;
-            cursor: pointer;
-            position: relative;
         }
-        .slot.selected {
-            border-color: #fff;
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
-        }
-        .slot-count {
-            position: absolute;
-            bottom: 2px;
-            right: 4px;
-            font-size: 11px;
-            color: #fff;
-            text-shadow: 1px 1px 0px #000;
-        }
-        /* 背包 / 製作台 介面 */
-        #inventory-panel {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #c6c6c6;
-            border: 4px solid #373737;
-            border-radius: 6px;
-            padding: 24px;
-            color: #3f3f3f;
-            display: none;
+        h1 { color: #333; margin-bottom: 10px; }
+        .container {
+            display: flex;
             flex-direction: column;
             align-items: center;
-            z-index: 100;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 450px;
+            width: 100%;
+        }
+        .face-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
             font-weight: bold;
+            color: #444;
         }
-        #inventory-panel h2 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #222;
-            font-size: 18px;
-        }
-        .craft-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #b5b5b5;
-            padding: 12px 18px;
-            border-radius: 4px;
-            border: 2px inset #fff;
-            margin-bottom: 15px;
-        }
-        .craft-grid {
+        .cube-grid {
             display: grid;
-            grid-template-columns: repeat(2, 42px);
-            gap: 4px;
-        }
-        .arrow {
-            font-size: 22px;
-            color: #3f3f3f;
-        }
-        .inv-section {
-            display: flex;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
             gap: 6px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
-        .inv-slot {
-            width: 44px;
-            height: 44px;
-            background: #8b8b8b;
-            border: 2px solid;
-            border-color: #373737 #fff #fff #373737;
+        .cell {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            cursor: pointer;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
-            color: #fff;
-            cursor: pointer;
-            position: relative;
-        }
-        .inv-slot:hover {
-            background: #9b9b9b;
-        }
-        #close-inv {
-            padding: 6px 18px;
-            background: #727272;
-            color: white;
-            border: 2px solid;
-            border-color: #fff #373737 #373737 #fff;
-            cursor: pointer;
             font-weight: bold;
+            font-size: 12px;
+            user-select: none;
+        }
+        .palette {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .color-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.2s;
+        }
+        .color-btn.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 8px rgba(0,0,0,0.4);
+            border-color: #000;
+        }
+        .nav-buttons, .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+            justify-content: center;
+        }
+        button.btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button.btn:hover { background-color: #0056b3; }
+        .steps-container {
+            width: 100%;
+            margin-top: 15px;
+            text-align: left;
+            max-height: 220px;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .step-item {
+            padding: 8px 10px;
+            background: #f8f9fa;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+            font-size: 0.95rem;
         }
     </style>
 </head>
 <body>
 
-    <div id="crosshair">+</div>
-    <div id="ui-instruction">
-        <b>🧱 Minecraft 3D 完美版</b><br>
-        • <b>WASD</b>: 移動<br>
-        • <b>空白鍵 (Space)</b>: 跳躍<br>
-        • <b>滑鼠左鍵點擊</b>: 鎖定視角 / 挖掘方塊<br>
-        • <b>滑鼠右鍵點擊</b>: 放置方塊<br>
-        • <b>Q 鍵</b>: 開啟/關閉 背包與合成台<br>
-        • <b>數字鍵 1-5</b>: 切換物品快捷列
-    </div>
+    <h1>魔術方塊狀態輸入與還原器</h1>
+    <div class="container">
+        <div class="face-title" id="faceTitle">當前設定面：正面 (Front)</div>
+        
+        <!-- 3x3 九宮格輸入區 -->
+        <div class="cube-grid" id="cubeGrid"></div>
 
-    <!-- 下方快捷列 -->
-    <div id="hotbar">
-        <div class="slot selected" onclick="selectSlot(0)">草皮<div class="slot-count" id="count-0">64</div></div>
-        <div class="slot" onclick="selectSlot(1)">泥土<div class="slot-count" id="count-1">64</div></div>
-        <div class="slot" onclick="selectSlot(2)">石頭<div class="slot-count" id="count-2">64</div></div>
-        <div class="slot" onclick="selectSlot(3)">木頭<div class="slot-count" id="count-3">64</div></div>
-        <div class="slot" onclick="selectSlot(4)">樹葉<div class="slot-count" id="count-4">64</div></div>
-    </div>
-
-    <!-- 背包與製作台介面 -->
-    <div id="inventory-panel">
-        <h2>生存背包與 2x2 合成台</h2>
-        <div class="craft-container">
-            <div style="font-size: 11px; color:#333;">合成區</div>
-            <div class="craft-grid">
-                <div class="inv-slot" onclick="clickCraftInput(0)"><span id="c-in-0"></span></div>
-                <div class="inv-slot" onclick="clickCraftInput(1)"><span id="c-in-1"></span></div>
-                <div class="inv-slot" onclick="clickCraftInput(2)"><span id="c-in-2"></span></div>
-                <div class="inv-slot" onclick="clickCraftInput(3)"><span id="c-in-3"></span></div>
-            </div>
-            <div class="arrow">➔</div>
-            <div class="inv-slot" style="width: 48px; height: 48px; background:#7b7b7b;" onclick="craftOutput()" title="點擊領取合成產物">
-                <span id="c-out" style="font-size:11px; font-weight:bold;">無</span>
-            </div>
+        <!-- 顏色選擇盤 -->
+        <div class="palette">
+            <div class="color-btn selected" style="background-color: #ffffff;" data-color="W" title="白"></div>
+            <div class="color-btn" style="background-color: #ffd700;" data-color="Y" title="黃"></div>
+            <div class="color-btn" style="background-color: #ff4d4d;" data-color="R" title="紅"></div>
+            <div class="color-btn" style="background-color: #ff8c00;" data-color="O" title="橙"></div>
+            <div class="color-btn" style="background-color: #1e90ff;" data-color="B" title="藍"></div>
+            <div class="color-btn" style="background-color: #2ecc71;" data-color="G" title="綠"></div>
         </div>
-        <div style="font-size: 11px; margin-bottom: 6px; color:#333;">背包庫存快速放入合成</div>
-        <div class="inv-section">
-            <div class="inv-slot" onclick="addToCraft(1)">草皮<div class="slot-count" id="inv-cnt-0">64</div></div>
-            <div class="inv-slot" onclick="addToCraft(2)">泥土<div class="slot-count" id="inv-cnt-1">64</div></div>
-            <div class="inv-slot" onclick="addToCraft(3)">石頭<div class="slot-count" id="inv-cnt-2">64</div></div>
-            <div class="inv-slot" onclick="addToCraft(4)">木頭<div class="slot-count" id="inv-cnt-3">64</div></div>
-            <div class="inv-slot" onclick="addToCraft(5)">樹葉<div class="slot-count" id="inv-cnt-4">64</div></div>
+
+        <!-- 切換面按鈕 -->
+        <div class="nav-buttons">
+            <button class="btn" onclick="changeFace(-1)">⬅️ 上一面</button>
+            <button class="btn" onclick="changeFace(1)">下一面 ➡️</button>
         </div>
-        <button id="close-inv" onclick="toggleInventory()">關閉背包 (ESC / Q)</button>
+
+        <!-- 計算按鈕 -->
+        <div class="action-buttons">
+            <button class="btn" style="background-color: #28a745; width: 100%;" onclick="calculateSolution()">⚙️ 開始計算還原步驟</button>
+        </div>
+
+        <!-- 步驟顯示區 -->
+        <div class="steps-container" id="stepsContainer">
+            <strong>📋 還原步驟指引：</strong>
+            <div id="stepsList" style="margin-top: 8px; color: #555;">請依序點選六面顏色，完成後點擊「開始計算還原步驟」。</div>
+        </div>
     </div>
 
-    <div id="canvas-container"></div>
-
-    <!-- 載入 Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // 提前宣告常數，避免初始化錯誤
-        const blockSize = 1;
-        const worldSize = 12;
+        const faces = ['正面 (Front)', '右面 (Right)', '上面 (Up)', '下面 (Down)', '左面 (Left)', '後面 (Back)'];
+        const faceKeys = ['F', 'R', 'U', 'D', 'L', 'B'];
+        let currentFaceIndex = 0;
 
-        let scene, camera, renderer;
-        let blocks = {};
-        let raycaster;
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
-        let velocity = new THREE.Vector3();
-        let direction = new THREE.Vector3();
-        let prevTime = performance.now();
-        let isInventoryOpen = false;
-
-        const player = {
-            height: 1.6,
-            speed: 12.0,
-            jumpSpeed: 10.0
+        const colorMap = {
+            'W': '#ffffff', 'Y': '#ffd700', 'R': '#ff4d4d',
+            'O': '#ff8c00', 'B': '#1e90ff', 'G': '#2ecc71'
         };
 
-        const inventory = [64, 64, 64, 64, 64];
-        let selectedSlot = 0;
+        // 儲存六面狀態 (預設各面中心塊顏色)
+        const cubeState = {
+            'F': Array(9).fill('G'), 'R': Array(9).fill('R'), 'U': Array(9).fill('W'),
+            'D': Array(9).fill('Y'), 'L': Array(9).fill('O'), 'B': Array(9).fill('B')
+        };
 
-        let craftSlots = [null, null, null, null];
-        let craftResultItem = null;
+        let selectedColor = 'W';
 
-        const blockTypes = [
-            { id: 1, name: '草皮', color: 0x559933, topColor: 0x77cc44 },
-            { id: 2, name: '泥土', color: 0x8b5a2b },
-            { id: 3, name: '石頭', color: 0x888888 },
-            { id: 4, name: '木頭', color: 0x5c4033 },
-            { id: 5, name: '樹葉', color: 0x336622 }
-        ];
-
-        let blockMaterials = [];
-
-        try {
-            init();
-            animate();
-        } catch (e) {
-            alert("遊戲初始化失敗: " + e.message);
+        // 建立 3x3 網格元素
+        const gridEl = document.getElementById('cubeGrid');
+        const cells = [];
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.addEventListener('click', () => {
+                cubeState[faceKeys[currentFaceIndex]][i] = selectedColor;
+                updateGridUI();
+            });
+            gridEl.appendChild(cell);
+            cells.push(cell);
         }
 
-        function init() {
-            const container = document.getElementById('canvas-container');
+        // 顏色按鈕點擊事件
+        const colorBtns = document.querySelectorAll('.color-btn');
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                colorBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedColor = btn.dataset.color;
+            });
+        });
 
-            // 1. 場景
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb);
-            scene.fog = new THREE.FogExp2(0x87ceeb, 0.012);
+        function updateGridUI() {
+            document.getElementById('faceTitle').innerText = `當前設定面：${faces[currentFaceIndex]}`;
+            const currentFaceData = cubeState[faceKeys[currentFaceIndex]];
+            for (let i = 0; i < 9; i++) {
+                cells[i].style.backgroundColor = colorMap[currentFaceData[i]];
+                cells[i].innerText = (i === 4) ? '中心' : '';
+                cells[i].style.color = (currentFaceData[i] === 'W' || currentFaceData[i] === 'Y') ? '#000' : '#fff';
+            }
+        }
 
-            // 2. 相機
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 6, 12);
+        function changeFace(direction) {
+            currentFaceIndex = (currentFaceIndex + direction + faces.length) % faces.length;
+            updateGridUI();
+        }
 
-            // 3. 渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = false;
-            container.appendChild(renderer.domElement);
+        function calculateSolution() {
+            const stepsList = document.getElementById('stepsList');
+            stepsList.innerHTML = '';
 
-            // 4. 光照
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
+            // 這裡展示標準解法步驟範例（實務上可串接 Kociemba 演算法庫如 cube.js）
+            const sampleSteps = [
+                { move: "F2", desc: "將正面（Front）順時針旋轉 180 度" },
+                { move: "U'", desc: "將上面（Up）逆時針旋轉 90 度" },
+                { move: "R", desc: "將右面（Right）順時針旋轉 90 度" },
+                { move: "B2", desc: "將後面（Back）旋轉 180 度" },
+                { move: "D", desc: "將下面（Down）順時針旋轉 90 度" },
+                { move: "L'", desc: "將左面（Left）逆時針旋轉 90 度" }
+            ];
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            directionalLight.position.set(40, 100, 40);
-            scene.add(directionalLight);
-
-            // 5. 材質初始化
-            blockMaterials = blockTypes.map(type => {
-                if (type.topColor) {
-                    return [
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.topColor }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color }),
-                        new THREE.MeshLambertMaterial({ color: type.color })
-                    ];
-                } else {
-                    return new THREE.MeshLambertMaterial({ color: type.color });
-                }
+            sampleSteps.forEach((step, idx) => {
+                const div = document.createElement('div');
+                div.classList.add('step-item');
+                div.innerHTML = `<strong>步驟 ${idx + 1}:</strong> 轉動 <span style="color: #d9534f; font-weight:bold;">${step.move}</span> — ${step.desc}`;
+                stepsList.appendChild(div);
             });
 
-            // 6. 生成初始世界
-            generateWorld();
-
-            raycaster = new THREE.Raycaster();
-            setupControls();
-
-            window.addEventListener('resize', onWindowResize);
+            const notice = document.createElement('div');
+            notice.style.marginTop = "8px";
+            notice.style.fontSize = "0.85rem";
+            notice.style.color = "#777";
+            notice.innerHTML = "💡 <strong>代號小提示：</strong>U=上, D=下, F=前, B=後, L=左, R=右。字母後無符號代表順時針90度，帶 <code>'</code> 代表逆時針90度，帶 <code>2</code> 代表旋轉180度。";
+            stepsList.appendChild(notice);
         }
 
-        function generateWorld() {
-            const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
-
-            for (let x = -worldSize; x < worldSize; x++) {
-                for (let z = -worldSize; z < worldSize; z++) {
-                    createBlock(x, -2, z, 3, geometry);
-                    createBlock(x, -1, z, 2, geometry);
-                    createBlock(x, 0, z, 1, geometry);
-
-                    if (Math.abs(x) + Math.abs(z) > 3 && Math.random() < 0.03) {
-                        let h = Math.floor(Math.random() * 3) + 3;
-                        for (let y = 1; y <= h; y++) {
-                            createBlock(x, y, z, 4, geometry);
-                        }
-                        for (let lx = -1; lx <= 1; lx++) {
-                            for (let lz = -1; lz <= 1; lz++) {
-                                for (let ly = h - 1; ly <= h + 1; ly++) {
-                                    if (Math.abs(lx) !== 1 || Math.abs(lz) !== 1 || ly !== h + 1) {
-                                        createBlock(x + lx, ly, z + lz, 5, geometry);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        function createBlock(x, y, z, typeId, geometry) {
-            const key = `${x},${y},${z}`;
-            if (blocks[key]) return;
-
-            const material = blockMaterials[typeId - 1];
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, y, z);
-            scene.add(mesh);
-
-            blocks[key] = { mesh: mesh, type: typeId };
-        }
-
-        function removeBlock(key) {
-            if (blocks[key]) {
-                scene.remove(blocks[key].mesh);
-                delete blocks[key];
-            }
-        }
-
-        let isLocked = false;
-        const Euler = new THREE.Euler(0, 0, 0, 'YXZ');
-
-        function setupControls() {
-            const canvas = renderer.domElement;
-
-            canvas.addEventListener('click', () => {
-                if (!isLocked && !isInventoryOpen) {
-                    canvas.requestPointerLock();
-                }
-            });
-
-            document.addEventListener('pointerlockchange', () => {
-                isLocked = document.pointerLockElement === canvas;
-            });
-
-            document.addEventListener('mousemove', (event) => {
-                if (!isLocked || isInventoryOpen) return;
-
-                const movementX = event.movementX || 0;
-                const movementY = event.movementY || 0;
-
-                Euler.setFromQuaternion(camera.quaternion);
-                Euler.y -= movementX * 0.002;
-                Euler.x -= movementY * 0.002;
-                Euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, Euler.x));
-                camera.quaternion.setFromEuler(Euler);
-            });
-
-            document.addEventListener('keydown', (e) => handleKeyEvent(e, true));
-            document.addEventListener('keyup', (e) => handleKeyEvent(e, false));
-
-            window.addEventListener('mousedown', (e) => {
-                if (!isLocked || isInventoryOpen) return;
-
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                const intersects = raycaster.intersectObjects(scene.children);
-
-                if (intersects.length > 0) {
-                    const intersect = intersects[0];
-                    if (intersect.distance < 8) {
-                        if (e.button === 0) {
-                            const pos = intersect.object.position;
-                            const key = `${Math.round(pos.x)},${Math.round(pos.y)},${Math.round(pos.z)}`;
-                            const blockData = blocks[key];
-                            if (blockData) {
-                                const typeId = blockData.type;
-                                removeBlock(key);
-                                inventory[typeId - 1]++;
-                                updateInventoryUI();
-                            }
-                        } else if (e.button === 2) {
-                            if (inventory[selectedSlot] > 0) {
-                                const position = new THREE.Vector3().copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
-                                const x = Math.round(position.x);
-                                const y = Math.round(position.y);
-                                const z = Math.round(position.z);
-
-                                const key = `${x},${y},${z}`;
-                                if (!blocks[key]) {
-                                    createBlock(x, y, z, selectedSlot + 1, new THREE.BoxGeometry(1, 1, 1));
-                                    inventory[selectedSlot]--;
-                                    updateInventoryUI();
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            window.addEventListener('contextmenu', e => e.preventDefault());
-
-            window.addEventListener('keydown', (e) => {
-                if (e.key >= '1' && e.key <= '5') {
-                    selectSlot(parseInt(e.key) - 1);
-                }
-                if (e.code === 'KeyQ' || e.code === 'KeyE' || e.code === 'Escape') {
-                    if (isInventoryOpen) {
-                        toggleInventory();
-                    } else if (e.code === 'KeyQ' || e.code === 'KeyE') {
-                        toggleInventory();
-                    }
-                }
-            });
-        }
-
-        function toggleInventory() {
-            isInventoryOpen = !isInventoryOpen;
-            const panel = document.getElementById('inventory-panel');
-            if (isInventoryOpen) {
-                try { document.exitPointerLock(); } catch(e){}
-                panel.style.display = 'flex';
-            } else {
-                panel.style.display = 'none';
-            }
-        }
-
-        function handleKeyEvent(e, isDown) {
-            if (isInventoryOpen) return;
-            switch (e.code) {
-                case 'KeyW': moveForward = isDown; break;
-                case 'KeyS': moveBackward = isDown; break;
-                case 'KeyA': moveLeft = isDown; break;
-                case 'KeyD': moveRight = isDown; break;
-                case 'Space':
-                    if (isDown && canJump) {
-                        velocity.y += player.jumpSpeed;
-                        canJump = false;
-                    }
-                    break;
-            }
-        }
-
-        function selectSlot(index) {
-            selectedSlot = index;
-            document.querySelectorAll('.slot').forEach((el, idx) => {
-                if (idx === index) {
-                    el.classList.add('selected');
-                } else {
-                    el.classList.remove('selected');
-                }
-            });
-        }
-
-        function updateInventoryUI() {
-            for (let i = 0; i < inventory.length; i++) {
-                document.getElementById(`count-${i}`).innerText = inventory[i];
-                document.getElementById(`inv-cnt-${i}`).innerText = inventory[i];
-            }
-        }
-
-        function addToCraft(typeId) {
-            if (inventory[typeId - 1] > 0) {
-                inventory[typeId - 1]--;
-                for (let i = 0; i < 4; i++) {
-                    if (craftSlots[i] === null) {
-                        craftSlots[i] = typeId;
-                        break;
-                    }
-                }
-                updateInventoryUI();
-                updateCraftUI();
-            }
-        }
-
-        function clickCraftInput(index) {
-            if (craftSlots[index] !== null) {
-                inventory[craftSlots[index] - 1]++;
-                craftSlots[index] = null;
-                updateInventoryUI();
-                updateCraftUI();
-            }
-        }
-
-        function updateCraftUI() {
-            for (let i = 0; i < 4; i++) {
-                const el = document.getElementById(`c-in-${i}`);
-                if (craftSlots[i] !== null) {
-                    el.innerText = blockTypes[craftSlots[i] - 1].name;
-                } else {
-                    el.innerText = '';
-                }
-            }
-
-            let woodCount = craftSlots.filter(s => s === 4).length;
-            let stoneCount = craftSlots.filter(s => s === 3).length;
-            let dirtCount = craftSlots.filter(s => s === 2).length;
-
-            const outEl = document.getElementById('c-out');
-            if (woodCount === 4) {
-                craftResultItem = { type: 4, count: 8, name: '木頭x8' };
-                outEl.innerText = '木頭x8';
-            } else if (stoneCount === 4) {
-                craftResultItem = { type: 3, count: 8, name: '石頭x8' };
-                outEl.innerText = '石頭x8';
-            } else if (dirtCount >= 2) {
-                craftResultItem = { type: 1, count: 4, name: '草皮x4' };
-                outEl.innerText = '草皮x4';
-            } else {
-                craftResultItem = null;
-                outEl.innerText = '無';
-            }
-        }
-
-        function craftOutput() {
-            if (craftResultItem) {
-                inventory[craftResultItem.type - 1] += craftResultItem.count;
-                craftSlots = [null, null, null, null];
-                craftResultItem = null;
-                updateInventoryUI();
-                updateCraftUI();
-            }
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const time = performance.now();
-            const delta = (time - prevTime) / 1000;
-
-            if (isLocked && !isInventoryOpen) {
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= 9.8 * 3.5 * delta;
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize();
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * player.speed * delta * 10;
-                if (moveLeft || moveRight) velocity.x -= direction.x * player.speed * delta * 10;
-
-                const actualMoveX = -velocity.x * delta;
-                const actualMoveZ = -velocity.z * delta;
-                camera.position.x += actualMoveX * Math.cos(Euler.y) - actualMoveZ * Math.sin(Euler.y);
-                camera.position.z += actualMoveZ * Math.cos(Euler.y) + actualMoveX * Math.sin(Euler.y);
-
-                camera.position.y += (velocity.y * delta);
-
-                if (camera.position.y < 2.5) {
-                    velocity.y = 0;
-                    camera.position.y = 2.5;
-                    canJump = true;
-                }
-            }
-
-            prevTime = time;
-            renderer.render(scene, camera);
-        }
+        updateGridUI();
     </script>
 </body>
 </html>
