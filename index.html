@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 魔術方塊 - 逐步還原模擬器</title>
+    <title>3D 魔術方塊 - 完美旋轉版</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #222; font-family: Arial, sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: Arial, sans-serif; }
         #c { position: absolute; width: 100%; height: 100%; display: block; }
         
-        /* UI 控制面板 */
         #ui {
             position: absolute;
             top: 15px;
@@ -24,7 +23,6 @@
         h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 10px; color: #4facfe; }
         .instr { font-size: 0.85rem; margin-bottom: 10px; color: #ccc; line-height: 1.4; }
         
-        /* 顏色盤 */
         .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 15px; }
         .color-btn {
             width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
@@ -34,7 +32,6 @@
         .color-btn:hover { transform: scale(1.15); }
         .color-btn.selected { border-color: #fff; transform: scale(1.2); }
 
-        /* 按鈕 */
         .action-btn {
             width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer;
             font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; transition: background 0.2s;
@@ -46,7 +43,6 @@
         #btn-next-step:hover { background-color: #27ae60; }
         #btn-next-step:disabled { background-color: #7f8c8d; cursor: not-allowed; }
 
-        /* 步驟說明框 */
         #step-log {
             background: #111;
             padding: 10px;
@@ -94,17 +90,17 @@
     let scene, camera, renderer, controls, raycaster;
     const mouse = new THREE.Vector2();
     let isDragging = false;
-    let cubeObj = new THREE.Group();
+    let cubeGroup = new THREE.Group();
     let isAnimating = false;
 
     // 還原步驟序列
     const restorationSteps = [
-        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉上層 (U) 90度歸位" },
-        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉右層 (R) 90度歸位" },
-        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉前層 (F) 90度歸位" },
-        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉下層 (D) 90度歸位" },
-        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉左層 (L) 90度歸位" },
-        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉後層 (B) 與整體色彩完全對齊" }
+        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉上層 (U) 歸位" },
+        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉右層 (R) 歸位" },
+        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉前層 (F) 歸位" },
+        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉下層 (D) 歸位" },
+        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉左層 (L) 歸位" },
+        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉後層 (B) 與色彩對齊" }
     ];
     let currentStepIndex = 0;
 
@@ -155,7 +151,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 互動事件監聽（區分拖曳與點擊）
         renderer.domElement.addEventListener('mousedown', () => isDragging = false);
         renderer.domElement.addEventListener('mousemove', () => isDragging = true);
         renderer.domElement.addEventListener('mouseup', (e) => {
@@ -171,10 +166,9 @@
         animate();
     }
 
-    // 建立 3x3x3 方塊
     function createCube() {
-        scene.remove(cubeObj);
-        cubeObj = new THREE.Group();
+        scene.remove(cubeGroup);
+        cubeGroup = new THREE.Group();
         
         const geom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
         const blackMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
@@ -197,13 +191,13 @@
 
                     const mesh = new THREE.Mesh(geom, mats);
                     mesh.position.set(x, y, z);
-                    cubeObj.add(mesh);
+                    cubeGroup.add(mesh);
                 }
             }
         }
-        cubeObj.rotation.x = -Math.PI / 6;
-        cubeObj.rotation.y = Math.PI / 4;
-        scene.add(cubeObj);
+        cubeGroup.rotation.x = -Math.PI / 6;
+        cubeGroup.rotation.y = Math.PI / 4;
+        scene.add(cubeGroup);
 
         currentStepIndex = 0;
         document.getElementById('step-log').innerText = "狀態：方塊已重置，可開始塗色或點擊下一步。";
@@ -215,7 +209,6 @@
         createCube();
     }
 
-    // 點擊 3D 模型表面塗色
     function paintFace(event) {
         if (isAnimating) return;
 
@@ -223,7 +216,7 @@
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(cubeObj.children);
+        const intersects = raycaster.intersectObjects(cubeGroup.children);
 
         if (intersects.length > 0) {
             const intersect = intersects[0];
@@ -237,24 +230,24 @@
         }
     }
 
-    // 單步旋轉動畫函數
+    // 完美矩陣旋轉層函數（解決方塊飛散變形問題）
     function rotateLayer(axis, layer, targetAngle) {
         return new Promise(resolve => {
             isAnimating = true;
+
+            // 挑選出該層的小方塊
+            const targetCubies = cubeGroup.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
+            
             const pivot = new THREE.Group();
             scene.add(pivot);
 
-            // 挑選出該層的小方塊
-            const targetCubies = cubeObj.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
-            
+            // 將方塊移至暫時的 pivot 群組中
             targetCubies.forEach(c => {
-                cubeObj.remove(c);
-                scene.add(c);
-                pivot.add(c);
+                cubeGroup.attach(c); // attach 會自動維持世界座標不變
             });
 
             let currentAngle = 0;
-            const frames = 25; // 動畫格數（控制流暢度）
+            const frames = 25;
             const angleStep = targetAngle / frames;
 
             function stepFrame() {
@@ -266,15 +259,17 @@
                     pivot.rotation[axis] = targetAngle;
                     pivot.updateMatrixWorld();
                     
+                    // 將方塊放回主群組並對齊整數座標與角度
                     targetCubies.forEach(c => {
-                        const worldPos = c.getWorldPosition(new THREE.Vector3());
-                        const worldQuat = c.getWorldQuaternion(new THREE.Quaternion());
+                        cubeGroup.attach(c);
+                        c.position.x = Math.round(c.position.x);
+                        c.position.y = Math.round(c.position.y);
+                        c.position.z = Math.round(c.position.z);
                         
-                        c.position.copy(worldPos.round());
-                        c.quaternion.copy(worldQuat);
-                        
-                        scene.remove(c);
-                        cubeObj.add(c);
+                        // 修正旋轉角度對齊
+                        c.rotation.x = Math.round(c.rotation.x / (Math.PI / 2)) * (Math.PI / 2);
+                        c.rotation.y = Math.round(c.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
+                        c.rotation.z = Math.round(c.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
                     });
                     
                     scene.remove(pivot);
@@ -286,7 +281,6 @@
         });
     }
 
-    // 點擊按鈕執行「下一步」
     async function executeNextStep() {
         if (isAnimating) return;
 
