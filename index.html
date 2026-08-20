@@ -2,361 +2,107 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 魔術方塊 - 自訂上色與 3D 轉動還原模擬器</title>
+    <title>3D 飛機破碎模擬器 (Pro Controller)</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: Arial, sans-serif; }
-        #c { position: absolute; width: 100%; height: 100%; display: block; }
-        
-        /* UI 控制面板 */
-        #ui {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 15px;
-            border-radius: 10px;
-            color: white;
-            width: 280px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-            z-index: 10;
-        }
-        h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 10px; color: #4facfe; }
-        .instr { font-size: 0.85rem; margin-bottom: 10px; color: #ccc; line-height: 1.4; }
-        
-        /* 顏色盤 */
-        .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 15px; }
-        .color-btn {
-            width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
-            border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            transition: transform 0.2s; margin: auto;
-        }
-        .color-btn:hover { transform: scale(1.15); }
-        .color-btn.selected { border-color: #fff; transform: scale(1.2); }
-
-        /* 按鈕樣式 */
-        .action-btn {
-            width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer;
-            font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; transition: background 0.2s;
-        }
-        #btn-reset { background-color: #e74c3c; color: white; }
-        #btn-reset:hover { background-color: #c0392b; }
-        
-        #btn-next-step { background-color: #2ecc71; color: white; }
-        #btn-next-step:hover { background-color: #27ae60; }
-        #btn-next-step:disabled { background-color: #7f8c8d; cursor: not-allowed; }
-
-        /* 步驟說明框 */
-        #step-log {
-            background: #111;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #f1c40f;
-            min-height: 45px;
-            border-left: 4px solid #2ecc71;
-            margin-top: 5px;
-        }
+        body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
+        #hud { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.5); padding: 15px; border: 1px solid #0f0; }
+        #info { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.5); padding: 15px; }
+        .red { color: #f00; } .green { color: #0f0; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <canvas id="c"></canvas>
-
-    <div id="ui">
-        <h2>3D 魔術方塊操作面板</h2>
-        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。<br>3. 點擊下一步觀看 3D 轉動與還原動畫。</div>
-        
-        <div class="palette" id="palette"></div>
-
-        <button id="btn-reset" class="action-btn">🔄 重置方塊</button>
-        <button id="btn-next-step" class="action-btn">▶️ 執行下一步 3D 轉動還原</button>
-        
-        <div id="step-log">狀態：請在方塊上隨意塗色，然後點擊下一步。</div>
-    </div>
-
-    <!-- 載入 Three.js 與 OrbitControls -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<div id="info">
+    <h1>Flight Sim (Switch Pro Control)</h1>
+    <p id="controller-status" class="red">未偵測到手把 (請按下按鍵)</p>
+    <p>控制: 左搖桿(油門/偏航), 右搖桿(俯仰/滾轉), B鍵(重生)</p>
+</div>
+<div id="hud">
+    <div>速度: <span id="v-speed">0</span></div>
+    <div>高度: <span id="v-alt">0</span></div>
+</div>
 
 <script>
-    const COLOURS = {
-        'W': '#FFFFFF', // 白
-        'Y': '#FFD700', // 黃
-        'R': '#FF3B30', // 紅
-        'O': '#FF9500', // 橙
-        'B': '#007AFF', // 藍
-        'G': '#34C759'  // 綠
-    };
+    // --- 場景設定 ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-    let currentHex = COLOURS['W'];
-    let scene, camera, renderer, controls, raycaster;
-    const mouse = new THREE.Vector2();
-    let isDragging = false;
-    let cubeObj = new THREE.Group();
-    let isAnimating = false;
-    let restorationStepIndex = 0;
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 20, 10);
+    scene.add(light, new THREE.AmbientLight(0xffffff, 0.5));
 
-    // 定義還原步驟（包含 3D 旋轉軸心、層數、角度與對應的標準面過濾條件）
-    const restorationSteps = [
-        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉並還原頂層 (白色面)", filter: c => Math.abs(c.position.y - 1) < 0.1 },
-        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉並還原右層 (紅色面)", filter: c => Math.abs(c.position.x - 1) < 0.1 },
-        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉並還原前層 (綠色面)", filter: c => Math.abs(c.position.z - 1) < 0.1 },
-        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉並還原底層 (黃色面)", filter: c => Math.abs(c.position.y - (-1)) < 0.1 },
-        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉並還原左層 (橙色面)", filter: c => Math.abs(c.position.x - (-1)) < 0.1 },
-        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉並還原後層 (藍色面與整體對齊)", filter: c => true }
-    ];
+    // --- 飛機模型 ---
+    const airplane = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 10), new THREE.MeshPhongMaterial({color: 0x0000ff}));
+    body.rotation.z = Math.PI/2;
+    airplane.add(body);
+    scene.add(airplane);
 
-    // 初始化顏色盤 UI
-    const paletteEl = document.getElementById('palette');
-    Object.entries(COLOURS).forEach(([key, hex], index) => {
-        const btn = document.createElement('div');
-        btn.className = `color-btn ${index === 0 ? 'selected' : ''}`;
-        btn.style.backgroundColor = hex;
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-            e.target.classList.add('selected');
-            currentHex = hex;
-        });
-        paletteEl.appendChild(btn);
-    });
+    // --- 地面 ---
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshPhongMaterial({color: 0x228b22}));
+    ground.rotation.x = -Math.PI/2;
+    scene.add(ground);
 
-    document.getElementById('btn-reset').addEventListener('click', resetCube);
-    document.getElementById('btn-next-step').addEventListener('click', executeNextStep);
-
-    // 3D 場景初始化
-    function init() {
-        const canvas = document.querySelector('#c');
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1a1a);
-
-        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(4, 3.5, 5.5);
-
-        renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-
-        raycaster = new THREE.Raycaster();
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, 7);
-        scene.add(dirLight);
-
-        scene.add(cubeObj);
-        createCube();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        renderer.domElement.addEventListener('mousedown', () => isDragging = false);
-        renderer.domElement.addEventListener('mousemove', () => isDragging = true);
-        renderer.domElement.addEventListener('mouseup', (e) => {
-            if (e.button === 0 && !isDragging) paintFace(e);
-        });
-
-        renderer.domElement.addEventListener('touchstart', () => isDragging = false);
-        renderer.domElement.addEventListener('touchmove', () => isDragging = true);
-        renderer.domElement.addEventListener('touchend', (e) => {
-            if (!isDragging && e.changedTouches.length === 1) paintFace(e.changedTouches[0]);
-        });
-
-        animate();
-    }
-
-    // 取得指定位置與面在原廠標準下的正確顏色
-    function getStandardColor(x, y, z, faceIndex) {
-        // materials 順序: [右(0), 左(1), 上(2), 下(3), 前(4), 後(5)]
-        if (faceIndex === 0 && x === 1) return COLOURS['R'];
-        if (faceIndex === 1 && x === -1) return COLOURS['O'];
-        if (faceIndex === 2 && y === 1) return COLOURS['W'];
-        if (faceIndex === 3 && y === -1) return COLOURS['Y'];
-        if (faceIndex === 4 && z === 1) return COLOURS['G'];
-        if (faceIndex === 5 && z === -1) return COLOURS['B'];
-        return 0x111111;
-    }
-
-    // 建立 3x3x3 方塊
-    function createCube() {
-        while(cubeObj.children.length > 0){ 
-            cubeObj.remove(cubeObj.children[0]); 
-        }
+    // --- 破碎函數 ---
+    function crash(obj) {
+        if(isCrashed) return;
+        isCrashed = true;
+        scene.remove(obj);
         
-        const geom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
-        const blackMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-
-        for (let x = -1; x <= 1; x++) {
-            for (let y = -1; y <= 1; y++) {
-                for (let z = -1; z <= 1; z++) {
-                    const mats = [
-                        blackMat.clone(), blackMat.clone(), 
-                        blackMat.clone(), blackMat.clone(), 
-                        blackMat.clone(), blackMat.clone()  
-                    ];
-
-                    if (x === 1) mats[0].color.set(COLOURS['R']);
-                    if (x === -1) mats[1].color.set(COLOURS['O']);
-                    if (y === 1) mats[2].color.set(COLOURS['W']);
-                    if (y === -1) mats[3].color.set(COLOURS['Y']);
-                    if (z === 1) mats[4].color.set(COLOURS['G']);
-                    if (z === -1) mats[5].color.set(COLOURS['B']);
-
-                    const mesh = new THREE.Mesh(geom, mats);
-                    mesh.position.set(x, y, z);
-                    cubeObj.add(mesh);
-                }
-            }
-        }
-
-        restorationStepIndex = 0;
-        document.getElementById('step-log').innerText = "狀態：方塊已重置，可開始在表面點擊上色。";
-        document.getElementById('btn-next-step').disabled = false;
-    }
-
-    function resetCube() {
-        if (isAnimating) return;
-        createCube();
-    }
-
-    function paintFace(event) {
-        if (isAnimating) return;
-
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(cubeObj.children);
-
-        if (intersects.length > 0) {
-            const intersect = intersects[0];
-            const object = intersect.object;
-            const faceIndex = intersect.face.materialIndex;
-            
-            const material = object.material[faceIndex];
-            if (material.color.getHex() !== 0x111111) {
-                material.color.set(currentHex);
-            }
+        // 簡單碎片化：建立幾個隨機方塊代表機體殘骸
+        for(let i=0; i<10; i++) {
+            const frag = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshPhongMaterial({color: 0xff0000}));
+            frag.position.copy(obj.position);
+            frag.userData = { vel: new THREE.Vector3(Math.random()-0.5, Math.random(), Math.random()-0.5).multiplyScalar(5) };
+            fragments.push(frag);
+            scene.add(frag);
         }
     }
 
-    // 同時執行「3D 層旋轉動畫」與「該層色彩還原」
-    function rotateAndRestoreLayer(stepInfo) {
-        return new Promise(resolve => {
-            isAnimating = true;
-            const { axis, layer, angle: targetAngle, filter } = stepInfo;
-            
-            const pivot = new THREE.Group();
-            if (axis === 'x') pivot.position.set(layer, 0, 0);
-            if (axis === 'y') pivot.position.set(0, layer, 0);
-            if (axis === 'z') pivot.position.set(0, 0, layer);
-            
-            scene.add(pivot);
+    // --- 變數 ---
+    let speed = 0, throttle = 0, isCrashed = false, fragments = [];
+    camera.position.set(0, 10, 20);
 
-            const targetCubies = cubeObj.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
-            targetCubies.forEach(c => pivot.attach(c));
-
-            let currentAngle = 0;
-            const frames = 25; 
-            const angleStep = targetAngle / frames;
-            let frameCount = 0;
-
-            function stepFrame() {
-                frameCount++;
-                if (Math.abs(currentAngle) < Math.abs(targetAngle)) {
-                    pivot.rotation[axis] += angleStep;
-                    currentAngle += angleStep;
-
-                    // 在轉動過程中同步將對應層的顏色漸變回原廠色彩
-                    cubeObj.children.forEach(mesh => {
-                        if (filter(mesh)) {
-                            const x = Math.round(mesh.position.x);
-                            const y = Math.round(mesh.position.y);
-                            const z = Math.round(mesh.position.z);
-                            mesh.material.forEach((mat, faceIndex) => {
-                                if (mat.color.getHex() !== 0x111111) {
-                                    const standardHex = getStandardColor(x, y, z, faceIndex);
-                                    if (standardHex !== 0x111111) {
-                                        mat.color.lerp(new THREE.Color(standardHex), 0.15);
-                                    }
-                                }
-                            });
-                        }
-                    });
-
-                    requestAnimationFrame(stepFrame);
-                } else {
-                    pivot.rotation[axis] = targetAngle;
-                    pivot.updateMatrixWorld();
-                    
-                    while(pivot.children.length > 0) {
-                        const c = pivot.children[0];
-                        cubeObj.attach(c);
-                        c.position.x = Math.round(c.position.x);
-                        c.position.y = Math.round(c.position.y);
-                        c.position.z = Math.round(c.position.z);
-                        c.rotation.x = Math.round(c.rotation.x / (Math.PI / 2)) * (Math.PI / 2);
-                        c.rotation.y = Math.round(c.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
-                        c.rotation.z = Math.round(c.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
-                    }
-                    
-                    // 強制完全對齊原廠標準顏色
-                    cubeObj.children.forEach(mesh => {
-                        const x = Math.round(mesh.position.x);
-                        const y = Math.round(mesh.position.y);
-                        const z = Math.round(mesh.position.z);
-                        mesh.material.forEach((mat, faceIndex) => {
-                            if (mat.color.getHex() !== 0x111111) {
-                                const standardHex = getStandardColor(x, y, z, faceIndex);
-                                if (standardHex !== 0x111111) {
-                                    mat.color.set(standardHex);
-                                }
-                            }
-                        });
-                    });
-
-                    scene.remove(pivot);
-                    isAnimating = false;
-                    resolve();
-                }
-            }
-            stepFrame();
-        });
-    }
-
-    // 執行下一步還原
-    async function executeNextStep() {
-        if (isAnimating) return;
-
-        if (restorationStepIndex < restorationSteps.length) {
-            const step = restorationSteps[restorationStepIndex];
-            document.getElementById('step-log').innerText = step.desc;
-            document.getElementById('btn-next-step').disabled = true;
-
-            await rotateAndRestoreLayer(step);
-
-            restorationStepIndex++;
-            document.getElementById('btn-next-step').disabled = false;
-
-            if (restorationStepIndex >= restorationSteps.length) {
-                document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完美還原為原廠標準六面單色！";
-                document.getElementById('btn-next-step').disabled = true;
-            }
-        }
-    }
-
+    // --- 動畫迴圈 ---
     function animate() {
         requestAnimationFrame(animate);
-        controls.update();
+        
+        const gp = navigator.getGamepads()[0];
+        if(gp) {
+            document.getElementById('controller-status').innerText = "手把已連接: " + gp.id;
+            document.getElementById('controller-status').className = "green";
+            
+            // 讀取手把輸入
+            throttle = (1 - gp.axes[1]) * 0.5; // 左搖桿Y
+            airplane.rotateX(gp.axes[3] * 0.05); // 右搖桿Y
+            airplane.rotateZ(-gp.axes[2] * 0.05); // 右搖桿X
+            
+            if(gp.buttons[0].pressed) location.reload(); // B鍵重置
+        }
+
+        if(!isCrashed) {
+            speed = throttle * 2;
+            airplane.translateZ(speed);
+            
+            // 碰撞檢測
+            if(airplane.position.y < 0) crash(airplane);
+            
+            camera.position.lerp(airplane.position.clone().add(new THREE.Vector3(0, 5, 15)), 0.1);
+            camera.lookAt(airplane.position);
+        } else {
+            fragments.forEach(f => f.position.add(f.userData.vel));
+        }
+
+        document.getElementById('v-speed').innerText = (speed * 100).toFixed(0);
+        document.getElementById('v-alt').innerText = airplane.position.y.toFixed(0);
         renderer.render(scene, camera);
     }
-
-    init();
+    animate();
 </script>
 </body>
 </html>
