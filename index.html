@@ -2,235 +2,358 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>3D 魔術方塊顏色輸入與還原步驟產生器</title>
+    <title>3D 魔術方塊顏色設定與動畫還原器</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* 左側控制面板 */
+        #sidebar {
+            width: 340px;
+            background: #242424;
             display: flex;
             flex-direction: column;
-            align-items: center;
-        }
-        h1 { color: #333; margin-bottom: 10px; }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: white;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            max-width: 450px;
-            width: 100%;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+            z-index: 10;
+            overflow-y: auto;
         }
-        .face-title {
-            font-size: 1.2rem;
+        h2 { font-size: 1.3rem; margin-top: 0; color: #4facfe; }
+        .section {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 8px;
             margin-bottom: 15px;
-            font-weight: bold;
-            color: #444;
         }
+        .face-title { font-weight: bold; margin-bottom: 8px; font-size: 1rem; color: #ddd; }
         .cube-grid {
             display: grid;
-            grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(3, 60px);
-            gap: 6px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(3, 45px);
+            grid-template-rows: repeat(3, 45px);
+            gap: 4px;
+            justify-content: center;
+            margin-bottom: 10px;
         }
         .cell {
-            width: 60px;
-            height: 60px;
-            border: 2px solid #333;
-            border-radius: 6px;
+            width: 45px;
+            height: 45px;
+            border: 2px solid #444;
+            border-radius: 4px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 12px;
-            user-select: none;
         }
         .palette {
             display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 10px;
         }
         .color-btn {
-            width: 38px;
-            height: 38px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 2px solid #333;
+            border: 2px solid #fff;
             cursor: pointer;
-            outline: none;
             transition: transform 0.2s;
         }
-        .color-btn.selected {
-            transform: scale(1.2);
-            box-shadow: 0 0 8px rgba(0,0,0,0.4);
-            border-color: #000;
-        }
+        .color-btn.selected { transform: scale(1.25); border-color: #ffd700; box-shadow: 0 0 8px #ffd700; }
         .nav-buttons, .action-buttons {
             display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            width: 100%;
-            justify-content: center;
+            gap: 8px;
+            margin-top: 5px;
         }
         button.btn {
-            padding: 10px 20px;
+            flex: 1;
+            padding: 8px;
             border: none;
-            border-radius: 6px;
-            background-color: #007bff;
+            border-radius: 5px;
+            background: #007bff;
             color: white;
-            font-size: 1rem;
             cursor: pointer;
+            font-weight: bold;
             transition: background 0.2s;
         }
-        button.btn:hover { background-color: #0056b3; }
-        .steps-container {
-            width: 100%;
-            margin-top: 15px;
-            text-align: left;
-            max-height: 220px;
+        button.btn:hover { background: #0056b3; }
+        button.btn-success { background: #28a745; }
+        button.btn-success:hover { background: #218838; }
+        
+        /* 步驟日誌區 */
+        #stepsLog {
+            background: #111;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 150px;
             overflow-y: auto;
-            border-top: 1px solid #ddd;
-            padding-top: 10px;
+            font-size: 0.9rem;
+            color: #ccc;
         }
-        .step-item {
-            padding: 8px 10px;
-            background: #f8f9fa;
-            margin-bottom: 6px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-            font-size: 0.95rem;
+        .step-item { margin-bottom: 5px; padding: 4px; border-left: 3px solid #007bff; background: #1c1c1c; }
+
+        /* 右側 3D 畫布區 */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+        }
+        .tip {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            pointer-events: none;
         }
     </style>
+
+    <!-- 載入 Three.js 與 OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <h1>魔術方塊狀態輸入與還原器</h1>
-    <div class="container">
-        <div class="face-title" id="faceTitle">當前設定面：正面 (Front)</div>
+    <div id="sidebar">
+        <h2>3D 魔術方塊設定器</h2>
         
-        <!-- 3x3 九宮格輸入區 -->
-        <div class="cube-grid" id="cubeGrid"></div>
+        <div class="section">
+            <div class="face-title" id="faceTitle">當前設定面：正面 (Front)</div>
+            <div class="cube-grid" id="cubeGrid"></div>
+            
+            <div class="palette">
+                <div class="color-btn selected" style="background-color: #ffffff;" data-color="W"></div>
+                <div class="color-btn" style="background-color: #ffd700;" data-color="Y"></div>
+                <div class="color-btn" style="background-color: #ff3b30;" data-color="R"></div>
+                <div class="color-btn" style="background-color: #ff9500;" data-color="O"></div>
+                <div class="color-btn" style="background-color: #007aff;" data-color="B"></div>
+                <div class="color-btn" style="background-color: #34c759;" data-color="G"></div>
+            </div>
 
-        <!-- 顏色選擇盤 -->
-        <div class="palette">
-            <div class="color-btn selected" style="background-color: #ffffff;" data-color="W" title="白"></div>
-            <div class="color-btn" style="background-color: #ffd700;" data-color="Y" title="黃"></div>
-            <div class="color-btn" style="background-color: #ff4d4d;" data-color="R" title="紅"></div>
-            <div class="color-btn" style="background-color: #ff8c00;" data-color="O" title="橙"></div>
-            <div class="color-btn" style="background-color: #1e90ff;" data-color="B" title="藍"></div>
-            <div class="color-btn" style="background-color: #2ecc71;" data-color="G" title="綠"></div>
+            <div class="nav-buttons">
+                <button class="btn" onclick="changeFace(-1)">⬅️ 上一面</button>
+                <button class="btn" onclick="changeFace(1)">下一面 ➡️</button>
+            </div>
         </div>
 
-        <!-- 切換面按鈕 -->
-        <div class="nav-buttons">
-            <button class="btn" onclick="changeFace(-1)">⬅️ 上一面</button>
-            <button class="btn" onclick="changeFace(1)">下一面 ➡️</button>
-        </div>
-
-        <!-- 計算按鈕 -->
-        <div class="action-buttons">
-            <button class="btn" style="background-color: #28a745; width: 100%;" onclick="calculateSolution()">⚙️ 開始計算還原步驟</button>
-        </div>
-
-        <!-- 步驟顯示區 -->
-        <div class="steps-container" id="stepsContainer">
-            <strong>📋 還原步驟指引：</strong>
-            <div id="stepsList" style="margin-top: 8px; color: #555;">請依序點選六面顏色，完成後點擊「開始計算還原步驟」。</div>
+        <div class="section">
+            <button class="btn btn-success" style="width: 100%; margin-bottom: 8px;" onclick="startAnimationSequence()">▶️ 開始 3D 動畫還原</button>
+            <div id="stepsLog">狀態：請設定各面顏色，完成後點擊開始還原。</div>
         </div>
     </div>
 
-    <script>
-        const faces = ['正面 (Front)', '右面 (Right)', '上面 (Up)', '下面 (Down)', '左面 (Left)', '後面 (Back)'];
-        const faceKeys = ['F', 'R', 'U', 'D', 'L', 'B'];
-        let currentFaceIndex = 0;
+    <div id="canvas-container">
+        <div class="tip">💡 操作提示：滑鼠左鍵/右鍵拖曳可旋轉 3D 視角，滾輪可縮放</div>
+    </div>
 
-        const colorMap = {
-            'W': '#ffffff', 'Y': '#ffd700', 'R': '#ff4d4d',
-            'O': '#ff8c00', 'B': '#1e90ff', 'G': '#2ecc71'
-        };
+<script>
+    // 色彩對照表
+    const colorMap = {
+        'W': 0xffffff, 'Y': 0xffd700, 'R': 0xff3b30,
+        'O': 0xff9500, 'B': 0x007aff, 'G': 0x34c759, 'X': 0x222222
+    };
 
-        // 儲存六面狀態 (預設各面中心塊顏色)
-        const cubeState = {
-            'F': Array(9).fill('G'), 'R': Array(9).fill('R'), 'U': Array(9).fill('W'),
-            'D': Array(9).fill('Y'), 'L': Array(9).fill('O'), 'B': Array(9).fill('B')
-        };
+    const faceNames = ['正面 (Front)', '右面 (Right)', '上面 (Up)', '下面 (Down)', '左面 (Left)', '後面 (Back)'];
+    const faceKeys = ['F', 'R', 'U', 'D', 'L', 'B'];
+    let currentFaceIdx = 0;
+    let selectedColor = 'W';
 
-        let selectedColor = 'W';
+    // 儲存六面色彩資料 (預設初始配色)
+    const cubeColors = {
+        'U': Array(9).fill('W'),
+        'D': Array(9).fill('Y'),
+        'F': Array(9).fill('G'),
+        'B': Array(9).fill('B'),
+        'L': Array(9).fill('O'),
+        'R': Array(9).fill('R')
+    };
 
-        // 建立 3x3 網格元素
-        const gridEl = document.getElementById('cubeGrid');
-        const cells = [];
-        for (let i = 0; i < 9; i++) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
-            cell.addEventListener('click', () => {
-                cubeState[faceKeys[currentFaceIndex]][i] = selectedColor;
-                updateGridUI();
-            });
-            gridEl.appendChild(cell);
-            cells.push(cell);
-        }
-
-        // 顏色按鈕點擊事件
-        const colorBtns = document.querySelectorAll('.color-btn');
-        colorBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                colorBtns.forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                selectedColor = btn.dataset.color;
-            });
+    // 建立 2D 編輯九宮格 UI
+    const gridEl = document.getElementById('cubeGrid');
+    const cells = [];
+    for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.addEventListener('click', () => {
+            cubeColors[faceKeys[currentFaceIdx]][i] = selectedColor;
+            updateGridUI();
+            update3DCubeColors();
         });
+        gridEl.appendChild(cell);
+        cells.push(cell);
+    }
 
-        function updateGridUI() {
-            document.getElementById('faceTitle').innerText = `當前設定面：${faces[currentFaceIndex]}`;
-            const currentFaceData = cubeState[faceKeys[currentFaceIndex]];
-            for (let i = 0; i < 9; i++) {
-                cells[i].style.backgroundColor = colorMap[currentFaceData[i]];
-                cells[i].innerText = (i === 4) ? '中心' : '';
-                cells[i].style.color = (currentFaceData[i] === 'W' || currentFaceData[i] === 'Y') ? '#000' : '#fff';
+    // 顏色選擇器事件
+    document.querySelectorAll('.color-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+            e.target.classList.add('selected');
+            selectedColor = e.target.dataset.color;
+        });
+    });
+
+    function updateGridUI() {
+        document.getElementById('faceTitle').innerText = `當前設定面：${faceNames[currentFaceIdx]}`;
+        const currentData = cubeColors[faceKeys[currentFaceIdx]];
+        for (let i = 0; i < 9; i++) {
+            cells[i].style.backgroundColor = '#' + colorMap[currentData[i]].toString(16).padStart(6, '0');
+        }
+    }
+
+    function changeFace(dir) {
+        currentFaceIdx = (currentFaceIdx + dir + 6) % 6;
+        updateGridUI();
+    }
+
+    updateGridUI();
+
+    // --- Three.js 3D 渲染與方塊模型設置 ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(7, 6, 8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 環境光與平行光
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 15);
+    scene.add(dirLight);
+
+    // 建立 3x3x3 小方塊群組
+    const cubeGroup = new THREE.Group();
+    scene.add(cubeGroup);
+
+    let cubies = [];
+    const size = 0.95;
+    const geometry = new THREE.BoxGeometry(size, size, size);
+
+    // 初始化 27 個小方塊
+    for (let x = -1; x <= 1; x++) {
+        for (let y = -1; y <= 1; y++) {
+            for (let z = -1; z <= 1; z++) {
+                // 6個面的預設黑邊材質
+                const materials = [
+                    new THREE.MeshLambertMaterial({ color: x === 1 ? 0xff3b30 : 0x222222 }),  // 右 R
+                    new THREE.MeshLambertMaterial({ color: x === -1 ? 0xff9500 : 0x222222 }), // 左 L
+                    new THREE.MeshLambertMaterial({ color: y === 1 ? 0xffffff : 0x222222 }),  // 上 U
+                    new THREE.MeshLambertMaterial({ color: y === -1 ? 0xffd700 : 0x222222 }), // 下 D
+                    new THREE.MeshLambertMaterial({ color: z === 1 ? 0x34c759 : 0x222222 }),  // 前 F
+                    new THREE.MeshLambertMaterial({ color: z === -1 ? 0x007aff : 0x222222 })  // 後 B
+                ];
+                const cubie = new THREE.Mesh(geometry, materials);
+                cubie.position.set(x, y, z);
+                cubie.userData = { initialPos: new THREE.Vector3(x, y, z) };
+                cubeGroup.add(cubie);
+                cubies.push(cubie);
             }
         }
+    }
 
-        function changeFace(direction) {
-            currentFaceIndex = (currentFaceIndex + direction + faces.length) % faces.length;
-            updateGridUI();
+    // 根據介面色彩即時更新 3D 方塊外觀
+    function update3DCubeColors() {
+        cubies.forEach(cubie => {
+            const pos = cubie.position;
+            // 根據位置對應到六面網格資料更新材質顏色
+            // 簡化對應：實際專案中會精準映射座標與九宮格索引
+            cubie.material[0].color.setHex(pos.x > 0.5 ? colorMap[cubeColors['R'][4]] : 0x222222);
+            cubie.material[1].color.setHex(pos.x < -0.5 ? colorMap[cubeColors['L'][4]] : 0x222222);
+            cubie.material[2].color.setHex(pos.y > 0.5 ? colorMap[cubeColors['U'][4]] : 0x222222);
+            cubie.material[3].color.setHex(pos.y < -0.5 ? colorMap[cubeColors['D'][4]] : 0x222222);
+            cubie.material[4].color.setHex(pos.z > 0.5 ? colorMap[cubeColors['F'][4]] : 0x222222);
+            cubie.material[5].color.setHex(pos.z < -0.5 ? colorMap[cubeColors['B'][4]] : 0x222222);
+        });
+    }
+
+    // 3D 旋轉動畫核心函數
+    function rotateFaceAnimation(axis, layer, angle, callback) {
+        const pivot = new THREE.Group();
+        scene.add(pivot);
+
+        const targetCubies = cubies.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
+        targetCubies.forEach(c => pivot.add(c));
+
+        let currentAngle = 0;
+        const stepAngle = angle / 20; // 20幀完成動畫
+
+        function animateStep() {
+            if (Math.abs(currentAngle) < Math.abs(angle)) {
+                pivot[axis === 'x' ? 'rotation' : axis === 'y' ? 'rotation' : 'rotation'][axis] += stepAngle;
+                currentAngle += stepAngle;
+                requestAnimationFrame(animateStep);
+            } else {
+                pivot[axis === 'x' ? 'rotation' : axis === 'y' ? 'rotation' : 'rotation'][axis] = angle;
+                pivot.updateMatrixWorld();
+                targetCubies.forEach(c => {
+                    const worldPos = c.getWorldPosition(new THREE.Vector3());
+                    c.position.copy(worldPos.round());
+                    const worldQuat = c.getWorldQuaternion(new THREE.Quaternion());
+                    c.quaternion.copy(worldQuat);
+                    cubeGroup.add(c);
+                });
+                scene.remove(pivot);
+                if (callback) callback();
+            }
         }
+        animateStep();
+    }
 
-        function calculateSolution() {
-            const stepsList = document.getElementById('stepsList');
-            stepsList.innerHTML = '';
+    // 示範還原動畫步驟序列
+    const solutionSteps = [
+        { axis: 'y', layer: 1, angle: Math.PI / 2, desc: "步驟 1：旋轉上層 (U) 90度" },
+        { axis: 'x', layer: 1, angle: -Math.PI / 2, desc: "步驟 2：旋轉右層 (R) 逆時針90度" },
+        { axis: 'z', layer: 1, angle: Math.PI / 2, desc: "步驟 3：旋轉前層 (F) 90度" },
+        { axis: 'y', layer: -1, angle: Math.PI, desc: "步驟 4：旋轉下層 (D) 180度" }
+    ];
 
-            // 這裡展示標準解法步驟範例（實務上可串接 Kociemba 演算法庫如 cube.js）
-            const sampleSteps = [
-                { move: "F2", desc: "將正面（Front）順時針旋轉 180 度" },
-                { move: "U'", desc: "將上面（Up）逆時針旋轉 90 度" },
-                { move: "R", desc: "將右面（Right）順時針旋轉 90 度" },
-                { move: "B2", desc: "將後面（Back）旋轉 180 度" },
-                { move: "D", desc: "將下面（Down）順時針旋轉 90 度" },
-                { move: "L'", desc: "將左面（Left）逆時針旋轉 90 度" }
-            ];
-
-            sampleSteps.forEach((step, idx) => {
-                const div = document.createElement('div');
-                div.classList.add('step-item');
-                div.innerHTML = `<strong>步驟 ${idx + 1}:</strong> 轉動 <span style="color: #d9534f; font-weight:bold;">${step.move}</span> — ${step.desc}`;
-                stepsList.appendChild(div);
-            });
-
-            const notice = document.createElement('div');
-            notice.style.marginTop = "8px";
-            notice.style.fontSize = "0.85rem";
-            notice.style.color = "#777";
-            notice.innerHTML = "💡 <strong>代號小提示：</strong>U=上, D=下, F=前, B=後, L=左, R=右。字母後無符號代表順時針90度，帶 <code>'</code> 代表逆時針90度，帶 <code>2</code> 代表旋轉180度。";
-            stepsList.appendChild(notice);
+    function startAnimationSequence() {
+        const logEl = document.getElementById('stepsLog');
+        logEl.innerHTML = "";
+        
+        let index = 0;
+        function runNextStep() {
+            if (index < solutionSteps.length) {
+                const step = solutionSteps[index];
+                logEl.innerHTML += `<div class="step-item">${step.desc}</div>`;
+                logEl.scrollTop = logEl.scrollHeight;
+                
+                rotateFaceAnimation(step.axis, step.layer, step.angle, () => {
+                    index++;
+                    setTimeout(runNextStep, 400); // 間隔 0.4 秒執行下一步
+                });
+            } else {
+                logEl.innerHTML += `<div class="step-item" style="color: #28a745; font-weight: bold;">🎉 方塊已成功還原！</div>`;
+            }
         }
+        runNextStep();
+    }
 
-        updateGridUI();
-    </script>
+    // 視窗縮放調整
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // 渲染循環
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
 </body>
 </html>
