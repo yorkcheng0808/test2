@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 魔術方塊 - 逐步還原動畫模擬器</title>
+    <title>3D 魔術方塊 - 智慧逐步還原模擬器</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: Arial, sans-serif; }
         #c { position: absolute; width: 100%; height: 100%; display: block; }
@@ -17,34 +17,27 @@
             padding: 15px;
             border-radius: 10px;
             color: white;
-            width: 260px;
+            width: 280px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.6);
             z-index: 10;
         }
         h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 10px; color: #4facfe; }
         .instr { font-size: 0.85rem; margin-bottom: 10px; color: #ccc; line-height: 1.4; }
         
-        /* 顏色盤 */
-        .palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 15px; }
-        .color-btn {
-            width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
-            border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            transition: transform 0.2s; margin: auto;
-        }
-        .color-btn:hover { transform: scale(1.15); }
-        .color-btn.selected { border-color: #fff; transform: scale(1.2); }
-
-        /* 按鈕 */
+        /* 按鈕樣式 */
         .action-btn {
             width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer;
             font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; transition: background 0.2s;
         }
-        #btn-reset { background-color: #e74c3c; color: white; }
-        #btn-reset:hover { background-color: #c0392b; }
-        
+        #btn-scramble { background-color: #f39c12; color: white; }
+        #btn-scramble:hover { background-color: #d35400; }
+
         #btn-next-step { background-color: #2ecc71; color: white; }
         #btn-next-step:hover { background-color: #27ae60; }
         #btn-next-step:disabled { background-color: #7f8c8d; cursor: not-allowed; }
+
+        #btn-reset { background-color: #e74c3c; color: white; }
+        #btn-reset:hover { background-color: #c0392b; }
 
         /* 步驟說明框 */
         #step-log {
@@ -65,15 +58,13 @@
 
     <div id="ui">
         <h2>3D 魔術方塊操作面板</h2>
-        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。</div>
+        <div class="instr">1. 點擊「隨機打亂」將方塊打散。<br>2. 點擊「下一步還原」觀看逐步還原動畫。<br>3. 拖曳背景可旋轉 3D 視角。</div>
         
-        <div class="palette" id="palette"></div>
-
-        <button id="btn-reset" class="action-btn">重置為標準單色</button>
+        <button id="btn-scramble" class="action-btn">🔀 隨機打亂方塊</button>
+        <button id="btn-next-step" class="action-btn" disabled>▶️ 執行下一步還原</button>
+        <button id="btn-reset" class="action-btn">🔄 重置方塊</button>
         
-        <div class="instr" style="margin-top: 8px; margin-bottom: 4px;"><strong>逐步還原控制：</strong></div>
-        <button id="btn-next-step" class="action-btn">▶️ 執行下一步還原</button>
-        <div id="step-log">狀態：請隨意塗色後，點擊「執行下一步還原」。</div>
+        <div id="step-log">狀態：請先點擊「隨機打亂方塊」。</div>
     </div>
 
     <!-- 載入 Three.js 與 OrbitControls -->
@@ -90,42 +81,15 @@
         'G': '#34C759'  // 綠
     };
 
-    let currentHex = COLOURS['W'];
-    let scene, camera, renderer, controls, raycaster;
-    const mouse = new THREE.Vector2();
-    let isDragging = false;
+    let scene, camera, renderer, controls;
     let cubeObj = new THREE.Group();
     let isAnimating = false;
+    let moveHistory = []; // 記錄打亂時的動作歷史
 
-    // 還原步驟序列
-    const restorationSteps = [
-        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉上層 (U) 90度歸位" },
-        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉右層 (R) 90度歸位" },
-        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉前層 (F) 90度歸位" },
-        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉下層 (D) 90度歸位" },
-        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉左層 (L) 90度歸位" },
-        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉後層 (B) 與整體色彩完全對齊" }
-    ];
-    let currentStepIndex = 0;
-
-    // 初始化顏色盤 UI
-    const paletteEl = document.getElementById('palette');
-    Object.entries(COLOURS).forEach(([key, hex], index) => {
-        const btn = document.createElement('div');
-        btn.className = `color-btn ${index === 0 ? 'selected' : ''}`;
-        btn.style.backgroundColor = hex;
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-            e.target.classList.add('selected');
-            currentHex = hex;
-        });
-        paletteEl.appendChild(btn);
-    });
-
-    document.getElementById('btn-reset').addEventListener('click', resetCube);
+    document.getElementById('btn-scramble').addEventListener('click', scrambleCube);
     document.getElementById('btn-next-step').addEventListener('click', executeNextStep);
+    document.getElementById('btn-reset').addEventListener('click', resetCube);
 
-    // 3D 場景初始化
     function init() {
         const canvas = document.querySelector('#c');
         scene = new THREE.Scene();
@@ -139,8 +103,6 @@
 
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-
-        raycaster = new THREE.Raycaster();
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -156,22 +118,10 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        renderer.domElement.addEventListener('mousedown', () => isDragging = false);
-        renderer.domElement.addEventListener('mousemove', () => isDragging = true);
-        renderer.domElement.addEventListener('mouseup', (e) => {
-            if (e.button === 0 && !isDragging) paintFace(e);
-        });
-
-        renderer.domElement.addEventListener('touchstart', () => isDragging = false);
-        renderer.domElement.addEventListener('touchmove', () => isDragging = true);
-        renderer.domElement.addEventListener('touchend', (e) => {
-            if (!isDragging && e.changedTouches.length === 1) paintFace(e.changedTouches[0]);
-        });
-
         animate();
     }
 
-    // 建立 3x3x3 方塊
+    // 建立標準 3x3x3 方塊
     function createCube() {
         while(cubeObj.children.length > 0){ 
             cubeObj.remove(cubeObj.children[0]); 
@@ -203,9 +153,9 @@
             }
         }
 
-        currentStepIndex = 0;
-        document.getElementById('step-log').innerText = "狀態：方塊已重置，可開始塗色或點擊下一步。";
-        document.getElementById('btn-next-step').disabled = false;
+        moveHistory = [];
+        document.getElementById('step-log').innerText = "狀態：方塊已重置，請點擊「隨機打亂方塊」。";
+        document.getElementById('btn-next-step').disabled = true;
     }
 
     function resetCube() {
@@ -213,50 +163,23 @@
         createCube();
     }
 
-    // 點擊 3D 模型表面塗色
-    function paintFace(event) {
-        if (isAnimating) return;
-
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(cubeObj.children);
-
-        if (intersects.length > 0) {
-            const intersect = intersects[0];
-            const object = intersect.object;
-            const faceIndex = intersect.face.materialIndex;
-            
-            const material = object.material[faceIndex];
-            if (material.color.getHex() !== 0x111111) {
-                material.color.set(currentHex);
-            }
-        }
-    }
-
-    // 單步旋轉動畫函數（已修復：旋轉軸心會對齊到正確的層位置）
+    // 單步旋轉動畫函數
     function rotateLayer(axis, layer, targetAngle) {
         return new Promise(resolve => {
             isAnimating = true;
             const pivot = new THREE.Group();
             
-            // 關鍵修復：根據軸向與層數設定正確的旋轉中心點
             if (axis === 'x') pivot.position.set(layer, 0, 0);
             if (axis === 'y') pivot.position.set(0, layer, 0);
             if (axis === 'z') pivot.position.set(0, 0, layer);
             
             scene.add(pivot);
 
-            // 挑選出該層的小方塊
             const targetCubies = cubeObj.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
-            
-            targetCubies.forEach(c => {
-                pivot.attach(c); // 安全地將方塊移至旋轉軸群組
-            });
+            targetCubies.forEach(c => pivot.attach(c));
 
             let currentAngle = 0;
-            const frames = 25; 
+            const frames = 15; // 動畫格數
             const angleStep = targetAngle / frames;
 
             function stepFrame() {
@@ -268,7 +191,6 @@
                     pivot.rotation[axis] = targetAngle;
                     pivot.updateMatrixWorld();
                     
-                    // 將方塊移回主方塊群組並精確對齊整數網格與角度
                     while(pivot.children.length > 0) {
                         const c = pivot.children[0];
                         cubeObj.attach(c);
@@ -289,25 +211,57 @@
         });
     }
 
-    // 點擊按鈕執行「下一步」
-    async function executeNextStep() {
+    // 隨機打亂方塊（記錄動作歷史）
+    async function scrambleCube() {
         if (isAnimating) return;
+        createCube(); // 確保從乾淨狀態開始打亂
 
-        if (currentStepIndex < restorationSteps.length) {
-            const step = restorationSteps[currentStepIndex];
-            document.getElementById('step-log').innerText = step.desc;
-            document.getElementById('btn-next-step').disabled = true;
+        const axes = ['x', 'y', 'z'];
+        const layers = [-1, 1];
+        const angles = [Math.PI / 2, -Math.PI / 2];
+        const scrambleSteps = 6; // 打亂 6 步
 
-            await rotateLayer(step.axis, step.layer, step.angle);
+        document.getElementById('btn-scramble').disabled = true;
+        document.getElementById('btn-next-step').disabled = true;
+        document.getElementById('step-log').innerText = "🔀 正在隨機打亂方塊...";
 
-            currentStepIndex++;
-            document.getElementById('btn-next-step').disabled = false;
+        for (let i = 0; i < scrambleSteps; i++) {
+            const axis = axes[Math.floor(Math.random() * axes.length)];
+            const layer = layers[Math.floor(Math.random() * layers.length)];
+            const angle = angles[Math.floor(Math.random() * angles.length)];
 
-            if (currentStepIndex >= restorationSteps.length) {
-                document.getElementById('step-log').innerText = "✨ 恭喜！方塊已順利還原為標準單色狀態！";
-                document.getElementById('btn-next-step').disabled = true;
-            }
+            moveHistory.push({ axis, layer, angle }); // 記錄正向動作
+            await rotateLayer(axis, layer, angle);
         }
+
+        document.getElementById('step-log').innerText = `狀態：打亂完成！共 ${moveHistory.length} 步。請點擊「下一步還原」。`;
+        document.getElementById('btn-scramble').disabled = false;
+        document.getElementById('btn-next-step').disabled = false;
+    }
+
+    // 執行下一步還原（反向播放最後一個動作）
+    async function executeNextStep() {
+        if (isAnimating || moveHistory.length === 0) return;
+
+        document.getElementById('btn-next-step').disabled = true;
+        document.getElementById('btn-scramble').disabled = true;
+
+        // 取出最後一個動作並「反向旋轉」
+        const lastMove = moveHistory.pop();
+        const reverseAngle = -lastMove.angle;
+
+        const axisNames = { 'x': '右/左層', 'y': '上/下層', 'z': '前/後層' };
+        document.getElementById('step-log').innerText = `⏳ 正在還原：反向旋轉 ${axisNames[lastMove.axis]}... (剩餘 ${moveHistory.length} 步)`;
+
+        await rotateLayer(lastMove.axis, lastMove.layer, reverseAngle);
+
+        if (moveHistory.length > 0) {
+            document.getElementById('btn-next-step').disabled = false;
+        } else {
+            document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完全還原！";
+            document.getElementById('btn-next-step').disabled = true;
+        }
+        document.getElementById('btn-scramble').disabled = false;
     }
 
     function animate() {
