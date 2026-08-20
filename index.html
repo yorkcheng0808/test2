@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 魔術方塊 - 自訂塗色與逐步還原模擬器</title>
+    <title>3D 魔術方塊 - 自訂塗色與 3D 轉動還原</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: Arial, sans-serif; }
         #c { position: absolute; width: 100%; height: 100%; display: block; }
@@ -65,14 +65,14 @@
 
     <div id="ui">
         <h2>3D 魔術方塊操作面板</h2>
-        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。<br>3. 塗亂後點擊下一步觀看還原動畫。</div>
+        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。<br>3. 點擊下一步觀看 3D 轉動還原動畫。</div>
         
         <div class="palette" id="palette"></div>
 
-        <button id="btn-reset" class="action-btn">🔄 重置方塊 (全白/標準)</button>
-        <button id="btn-next-step" class="action-btn">▶️ 執行下一步還原</button>
+        <button id="btn-reset" class="action-btn">🔄 重置方塊</button>
+        <button id="btn-next-step" class="action-btn">▶️ 執行下一步 3D 轉動</button>
         
-        <div id="step-log">狀態：請在方塊上隨意塗色，然後點擊「執行下一步還原」。</div>
+        <div id="step-log">狀態：請在方塊上隨意塗色，然後點擊下一步。</div>
     </div>
 
     <!-- 載入 Three.js 與 OrbitControls -->
@@ -96,6 +96,16 @@
     let cubeObj = new THREE.Group();
     let isAnimating = false;
     let restorationStepIndex = 0;
+
+    // 3D 轉動還原步驟序列
+    const restorationSteps = [
+        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉上層 (U) 90度" },
+        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉右層 (R) 90度" },
+        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉前層 (F) 90度" },
+        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉下層 (D) 90度" },
+        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉左層 (L) 90度" },
+        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉後層 (B) 歸位對齊" }
+    ];
 
     // 初始化顏色盤 UI
     const paletteEl = document.getElementById('palette');
@@ -159,18 +169,6 @@
         });
 
         animate();
-    }
-
-    // 取得標準指定位置的正確顏色
-    function getStandardColor(x, y, z, faceIndex) {
-        // materials 對應順序: [右(0), 左(1), 上(2), 下(3), 前(4), 後(5)]
-        if (faceIndex === 0 && x === 1) return COLOURS['R'];
-        if (faceIndex === 1 && x === -1) return COLOURS['O'];
-        if (faceIndex === 2 && y === 1) return COLOURS['W'];
-        if (faceIndex === 3 && y === -1) return COLOURS['Y'];
-        if (faceIndex === 4 && z === 1) return COLOURS['G'];
-        if (faceIndex === 5 && z === -1) return COLOURS['B'];
-        return 0x111111; // 內側黑色
     }
 
     // 建立 3x3x3 方塊
@@ -237,82 +235,75 @@
         }
     }
 
-    // 逐步色彩還原動畫
+    // 3D 層級旋轉動畫函數
+    function rotateLayer(axis, layer, targetAngle) {
+        return new Promise(resolve => {
+            isAnimating = true;
+            const pivot = new THREE.Group();
+            
+            // 精準設定旋轉中心點
+            if (axis === 'x') pivot.position.set(layer, 0, 0);
+            if (axis === 'y') pivot.position.set(0, layer, 0);
+            if (axis === 'z') pivot.position.set(0, 0, layer);
+            
+            scene.add(pivot);
+
+            // 挑選出該層的小方塊
+            const targetCubies = cubeObj.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
+            targetCubies.forEach(c => pivot.attach(c));
+
+            let currentAngle = 0;
+            const frames = 20; 
+            const angleStep = targetAngle / frames;
+
+            function stepFrame() {
+                if (Math.abs(currentAngle) < Math.abs(targetAngle)) {
+                    pivot.rotation[axis] += angleStep;
+                    currentAngle += angleStep;
+                    requestAnimationFrame(stepFrame);
+                } else {
+                    pivot.rotation[axis] = targetAngle;
+                    pivot.updateMatrixWorld();
+                    
+                    while(pivot.children.length > 0) {
+                        const c = pivot.children[0];
+                        cubeObj.attach(c);
+                        c.position.x = Math.round(c.position.x);
+                        c.position.y = Math.round(c.position.y);
+                        c.position.z = Math.round(c.position.z);
+                        c.rotation.x = Math.round(c.rotation.x / (Math.PI / 2)) * (Math.PI / 2);
+                        c.rotation.y = Math.round(c.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
+                        c.rotation.z = Math.round(c.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
+                    }
+                    
+                    scene.remove(pivot);
+                    isAnimating = false;
+                    resolve();
+                }
+            }
+            stepFrame();
+        });
+    }
+
+    // 執行下一步 3D 轉動還原
     async function executeNextStep() {
         if (isAnimating) return;
 
-        const steps = [
-            { name: "步驟 1：還原頂層 (白色面)", filter: c => Math.abs(c.position.y - 1) < 0.1 },
-            { name: "步驟 2：還原底層 (黃色面)", filter: c => Math.abs(c.position.y - (-1)) < 0.1 },
-            { name: "步驟 3：還原右層與左層 (紅/橙面)", filter: c => Math.abs(c.position.x) > 0.1 },
-            { name: "步驟 4：還原前層與後層 (綠/藍面與整體完美對齊)", filter: c => Math.abs(c.position.z) > 0.1 || true }
-        ];
+        if (restorationStepIndex < restorationSteps.length) {
+            const step = restorationSteps[restorationStepIndex];
+            document.getElementById('step-log').innerText = step.desc;
+            document.getElementById('btn-next-step').disabled = true;
 
-        if (restorationStepIndex >= steps.length) {
-            document.getElementById('step-log').innerText = "✨ 方塊已經完全還原！";
-            return;
-        }
+            await rotateLayer(step.axis, step.layer, step.angle);
 
-        isAnimating = true;
-        document.getElementById('btn-next-step').disabled = true;
-        const currentStep = steps[restorationStepIndex];
-        document.getElementById('step-log').innerText = `⏳ ${currentStep.name}中...`;
+            restorationStepIndex++;
+            document.getElementById('btn-next-step').disabled = false;
 
-        // 漸變動畫特效
-        let progress = 0;
-        const frames = 30;
-
-        function animateTransition() {
-            progress++;
-            cubeObj.children.forEach(mesh => {
-                const x = Math.round(mesh.position.x);
-                const y = Math.round(mesh.position.y);
-                const z = Math.round(mesh.position.z);
-
-                mesh.material.forEach((mat, faceIndex) => {
-                    if (mat.color.getHex() !== 0x111111) {
-                        const targetHex = getStandardColor(x, y, z, faceIndex);
-                        if (targetHex !== 0x111111 && currentStep.filter(mesh)) {
-                            // 漸變顏色
-                            const cCurrent = new THREE.Color(mat.color);
-                            const cTarget = new THREE.Color(targetHex);
-                            cCurrent.lerp(cTarget, 1 / (frames - progress + 1));
-                            mat.color.copy(cCurrent);
-                        }
-                    }
-                });
-            });
-
-            if (progress < frames) {
-                requestAnimationFrame(animateTransition);
-            } else {
-                // 確保最後精確到位
-                cubeObj.children.forEach(mesh => {
-                    const x = Math.round(mesh.position.x);
-                    const y = Math.round(mesh.position.y);
-                    const z = Math.round(mesh.position.z);
-                    mesh.material.forEach((mat, faceIndex) => {
-                        if (mat.color.getHex() !== 0x111111 && currentStep.filter(mesh)) {
-                            const targetHex = getStandardColor(x, y, z, faceIndex);
-                            if (targetHex !== 0x111111) mat.color.set(targetHex);
-                        }
-                    });
-                });
-
-                isAnimating = false;
-                restorationStepIndex++;
-                
-                if (restorationStepIndex < steps.length) {
-                    document.getElementById('btn-next-step').disabled = false;
-                    document.getElementById('step-log').innerText = `✅ 完成！請點擊繼續下一步。`;
-                } else {
-                    document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完美還原！";
-                    document.getElementById('btn-next-step').disabled = true;
-                }
+            if (restorationStepIndex >= restorationSteps.length) {
+                document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完成所有 3D 轉動還原！";
+                document.getElementById('btn-next-step').disabled = true;
             }
         }
-
-        animateTransition();
     }
 
     function animate() {
