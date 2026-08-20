@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 魔術方塊 - 自訂塗色與 3D 轉動還原</title>
+    <title>3D 魔術方塊 - 自訂上色與 3D 轉動還原模擬器</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: Arial, sans-serif; }
         #c { position: absolute; width: 100%; height: 100%; display: block; }
@@ -65,12 +65,12 @@
 
     <div id="ui">
         <h2>3D 魔術方塊操作面板</h2>
-        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。<br>3. 點擊下一步觀看 3D 轉動還原動畫。</div>
+        <div class="instr">1. 點擊下方顏色，再點 3D 方塊上色。<br>2. 拖曳背景可旋轉 3D 視角。<br>3. 點擊下一步觀看 3D 轉動與還原動畫。</div>
         
         <div class="palette" id="palette"></div>
 
         <button id="btn-reset" class="action-btn">🔄 重置方塊</button>
-        <button id="btn-next-step" class="action-btn">▶️ 執行下一步 3D 轉動</button>
+        <button id="btn-next-step" class="action-btn">▶️ 執行下一步 3D 轉動還原</button>
         
         <div id="step-log">狀態：請在方塊上隨意塗色，然後點擊下一步。</div>
     </div>
@@ -97,14 +97,14 @@
     let isAnimating = false;
     let restorationStepIndex = 0;
 
-    // 3D 轉動還原步驟序列
+    // 定義還原步驟（包含 3D 旋轉軸心、層數、角度與對應的標準面過濾條件）
     const restorationSteps = [
-        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉上層 (U) 90度" },
-        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉右層 (R) 90度" },
-        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉前層 (F) 90度" },
-        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉下層 (D) 90度" },
-        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉左層 (L) 90度" },
-        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉後層 (B) 歸位對齊" }
+        { axis: 'y', layer: 1, angle: -Math.PI/2, desc: "步驟 1：旋轉並還原頂層 (白色面)", filter: c => Math.abs(c.position.y - 1) < 0.1 },
+        { axis: 'x', layer: 1, angle: Math.PI/2, desc: "步驟 2：旋轉並還原右層 (紅色面)", filter: c => Math.abs(c.position.x - 1) < 0.1 },
+        { axis: 'z', layer: 1, angle: -Math.PI/2, desc: "步驟 3：旋轉並還原前層 (綠色面)", filter: c => Math.abs(c.position.z - 1) < 0.1 },
+        { axis: 'y', layer: -1, angle: Math.PI/2, desc: "步驟 4：旋轉並還原底層 (黃色面)", filter: c => Math.abs(c.position.y - (-1)) < 0.1 },
+        { axis: 'x', layer: -1, angle: -Math.PI/2, desc: "步驟 5：旋轉並還原左層 (橙色面)", filter: c => Math.abs(c.position.x - (-1)) < 0.1 },
+        { axis: 'z', layer: -1, angle: Math.PI/2, desc: "步驟 6：旋轉並還原後層 (藍色面與整體對齊)", filter: c => true }
     ];
 
     // 初始化顏色盤 UI
@@ -155,7 +155,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 互動點擊上色（區分拖曳與點擊）
         renderer.domElement.addEventListener('mousedown', () => isDragging = false);
         renderer.domElement.addEventListener('mousemove', () => isDragging = true);
         renderer.domElement.addEventListener('mouseup', (e) => {
@@ -169,6 +168,18 @@
         });
 
         animate();
+    }
+
+    // 取得指定位置與面在原廠標準下的正確顏色
+    function getStandardColor(x, y, z, faceIndex) {
+        // materials 順序: [右(0), 左(1), 上(2), 下(3), 前(4), 後(5)]
+        if (faceIndex === 0 && x === 1) return COLOURS['R'];
+        if (faceIndex === 1 && x === -1) return COLOURS['O'];
+        if (faceIndex === 2 && y === 1) return COLOURS['W'];
+        if (faceIndex === 3 && y === -1) return COLOURS['Y'];
+        if (faceIndex === 4 && z === 1) return COLOURS['G'];
+        if (faceIndex === 5 && z === -1) return COLOURS['B'];
+        return 0x111111;
     }
 
     // 建立 3x3x3 方塊
@@ -213,7 +224,6 @@
         createCube();
     }
 
-    // 點擊 3D 模型表面塗色
     function paintFace(event) {
         if (isAnimating) return;
 
@@ -235,31 +245,50 @@
         }
     }
 
-    // 3D 層級旋轉動畫函數
-    function rotateLayer(axis, layer, targetAngle) {
+    // 同時執行「3D 層旋轉動畫」與「該層色彩還原」
+    function rotateAndRestoreLayer(stepInfo) {
         return new Promise(resolve => {
             isAnimating = true;
-            const pivot = new THREE.Group();
+            const { axis, layer, angle: targetAngle, filter } = stepInfo;
             
-            // 精準設定旋轉中心點
+            const pivot = new THREE.Group();
             if (axis === 'x') pivot.position.set(layer, 0, 0);
             if (axis === 'y') pivot.position.set(0, layer, 0);
             if (axis === 'z') pivot.position.set(0, 0, layer);
             
             scene.add(pivot);
 
-            // 挑選出該層的小方塊
             const targetCubies = cubeObj.children.filter(c => Math.abs(c.position[axis] - layer) < 0.1);
             targetCubies.forEach(c => pivot.attach(c));
 
             let currentAngle = 0;
-            const frames = 20; 
+            const frames = 25; 
             const angleStep = targetAngle / frames;
+            let frameCount = 0;
 
             function stepFrame() {
+                frameCount++;
                 if (Math.abs(currentAngle) < Math.abs(targetAngle)) {
                     pivot.rotation[axis] += angleStep;
                     currentAngle += angleStep;
+
+                    // 在轉動過程中同步將對應層的顏色漸變回原廠色彩
+                    cubeObj.children.forEach(mesh => {
+                        if (filter(mesh)) {
+                            const x = Math.round(mesh.position.x);
+                            const y = Math.round(mesh.position.y);
+                            const z = Math.round(mesh.position.z);
+                            mesh.material.forEach((mat, faceIndex) => {
+                                if (mat.color.getHex() !== 0x111111) {
+                                    const standardHex = getStandardColor(x, y, z, faceIndex);
+                                    if (standardHex !== 0x111111) {
+                                        mat.color.lerp(new THREE.Color(standardHex), 0.15);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
                     requestAnimationFrame(stepFrame);
                 } else {
                     pivot.rotation[axis] = targetAngle;
@@ -276,6 +305,21 @@
                         c.rotation.z = Math.round(c.rotation.z / (Math.PI / 2)) * (Math.PI / 2);
                     }
                     
+                    // 強制完全對齊原廠標準顏色
+                    cubeObj.children.forEach(mesh => {
+                        const x = Math.round(mesh.position.x);
+                        const y = Math.round(mesh.position.y);
+                        const z = Math.round(mesh.position.z);
+                        mesh.material.forEach((mat, faceIndex) => {
+                            if (mat.color.getHex() !== 0x111111) {
+                                const standardHex = getStandardColor(x, y, z, faceIndex);
+                                if (standardHex !== 0x111111) {
+                                    mat.color.set(standardHex);
+                                }
+                            }
+                        });
+                    });
+
                     scene.remove(pivot);
                     isAnimating = false;
                     resolve();
@@ -285,7 +329,7 @@
         });
     }
 
-    // 執行下一步 3D 轉動還原
+    // 執行下一步還原
     async function executeNextStep() {
         if (isAnimating) return;
 
@@ -294,13 +338,13 @@
             document.getElementById('step-log').innerText = step.desc;
             document.getElementById('btn-next-step').disabled = true;
 
-            await rotateLayer(step.axis, step.layer, step.angle);
+            await rotateAndRestoreLayer(step);
 
             restorationStepIndex++;
             document.getElementById('btn-next-step').disabled = false;
 
             if (restorationStepIndex >= restorationSteps.length) {
-                document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完成所有 3D 轉動還原！";
+                document.getElementById('step-log').innerText = "✨ 恭喜！方塊已完美還原為原廠標準六面單色！";
                 document.getElementById('btn-next-step').disabled = true;
             }
         }
