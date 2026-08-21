@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F-16 戰鬥機擬真模擬器 (完美版)</title>
+    <title>F-16 第一人稱駕駛艙模擬器</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
         #hud { position: absolute; bottom: 20px; left: 20px; background: rgba(0,20,40,0.75); padding: 15px 25px; border-radius: 8px; border: 1px solid #00ffcc; pointer-events: none; box-shadow: 0 0 15px rgba(0,255,204,0.3); }
@@ -20,49 +20,43 @@
 <body>
 
 <div id="info">
-    <h2>F-16 海濱飛行模擬器</h2>
+    <h2>F-16 第一人稱駕駛艙模擬器</h2>
     <p id="controller-status" class="red">狀態: 等待手把連線 (請按任意按鍵)</p>
     <p><strong>控制說明：</strong></p>
     <p>• 左搖桿上下：油門動力控制</p>
     <p>• 左搖桿左右：偏航 (Yaw)</p>
     <p>• 右搖桿上下：俯仰 (Pitch)</p>
     <p>• 右搖桿左右：滾轉 (Roll)</p>
-    <p>• B 鍵：飛機損毀重置 (重生)</p>
+    <p>• B 鍵：損毀重置 (重生)</p>
 </div>
 
 <div id="hud">
-    <div style="font-size: 18px; border-bottom: 1px dashed #00ffcc; padding-bottom: 5px; margin-bottom: 8px; color:#00ffcc;">FLIGHT HUD</div>
+    <div style="font-size: 18px; border-bottom: 1px dashed #00ffcc; padding-bottom: 5px; margin-bottom: 8px; color:#00ffcc;">COCKPIT HUD</div>
     <div>飛行速度: <span id="v-speed" style="color:#fff;">0</span> knots</div>
     <div>飛行高度: <span id="v-alt" style="color:#fff;">0</span> ft</div>
     <div>油門動力: <span id="v-throttle" style="color:#fff;">0</span>%</div>
 </div>
 
 <script>
-    // --- 1. 場景、相機與渲染器設定 ---
+    // --- 1. 場景與渲染器設定 ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xa0c5e8);
-    scene.fog = new THREE.FogExp2(0xa0c5e8, 0.0007);
+    scene.fog = new THREE.FogExp2(0xa0c5e8, 0.0006);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 10000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     // 光照
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(500, 800, 500);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
-    // --- 2. 環境：動態海浪與海岸跑道 ---
-    // 海洋
+    // --- 2. 環境：海浪與水泥跑道 ---
     const waterGeo = new THREE.PlaneGeometry(12000, 12000, 64, 64);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({ color: 0x1e6091, roughness: 0.1, metalness: 0.8 });
@@ -70,7 +64,6 @@
     water.position.y = -2;
     scene.add(water);
 
-    // 陸地
     const landGeo = new THREE.PlaneGeometry(6000, 12000);
     landGeo.rotateX(-Math.PI / 2);
     const landMat = new THREE.MeshStandardMaterial({ color: 0x3b7a57, roughness: 0.9 });
@@ -78,7 +71,6 @@
     land.position.set(-4000, 0, 0);
     scene.add(land);
 
-    // 長長的水泥跑道
     const runwayGeo = new THREE.PlaneGeometry(90, 2500);
     runwayGeo.rotateX(-Math.PI / 2);
     const runwayMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
@@ -86,62 +78,83 @@
     runway.position.set(-700, 0.61, 0);
     scene.add(runway);
 
-    // --- 3. 精緻 F-16 戰鬥機模型建構 ---
+    // --- 3. 更精緻的 F-16 戰鬥機模型（含副油箱、進氣道與武器） ---
     const airplane = new THREE.Group();
-    const f16Mat = new THREE.MeshStandardMaterial({ color: 0x6e757c, roughness: 0.35, metalness: 0.65 }); // 標準軍灰色
+    const f16Mat = new THREE.MeshStandardMaterial({ color: 0x6e757c, roughness: 0.35, metalness: 0.65 });
 
-    // 機身主體
+    // 機身
     const fuselageGeo = new THREE.ConeGeometry(1.8, 18, 12);
     fuselageGeo.rotateX(Math.PI / 2);
     const fuselage = new THREE.Mesh(fuselageGeo, f16Mat);
-    fuselage.castShadow = true;
     airplane.add(fuselage);
 
     // 主機翼
     const wingGeo = new THREE.BoxGeometry(25, 0.3, 5.5);
     const wings = new THREE.Mesh(wingGeo, f16Mat);
     wings.position.set(0, 0, -1);
-    wings.castShadow = true;
     airplane.add(wings);
 
-    // 垂直尾翼 (大傾角)
+    // 垂直尾翼
     const tailGeo = new THREE.BoxGeometry(0.3, 5.5, 4.2);
     const tail = new THREE.Mesh(tailGeo, f16Mat);
     tail.position.set(0, 2.7, -7.5);
     tail.rotation.x = -0.3;
-    tail.castShadow = true;
     airplane.add(tail);
 
-    // 灰色透明座艙罩玻璃
-    const canopyGeo = new THREE.SphereGeometry(1.2, 12, 12);
-    canopyGeo.scale(1, 0.7, 2.3);
-    const canopyMat = new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.1, transparent: true, opacity: 0.65 });
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-    canopy.position.set(0, 1.3, 2);
-    airplane.add(canopy);
+    // F-16 機腹進氣道
+    const intakeGeo = new THREE.BoxGeometry(2.2, 1.5, 6);
+    const intake = new THREE.Mesh(intakeGeo, f16Mat);
+    intake.position.set(0, -1.2, 2);
+    airplane.add(intake);
 
-    // 降落輪子 (起落架)
+    // 機翼下副油箱 (像圖片中的掛載)
+    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 5, 8);
+    tankGeo.rotateX(Math.PI / 2);
+    const tankMat = new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.4 });
+    const leftTank = new THREE.Mesh(tankGeo, tankMat);
+    leftTank.position.set(-5, -1.2, 0);
+    airplane.add(leftTank);
+    const rightTank = new THREE.Mesh(tankGeo, tankMat);
+    rightTank.position.set(5, -1.2, 0);
+    airplane.add(rightTank);
+
+    // 翼尖飛彈
+    const missileGeo = new THREE.CylinderGeometry(0.2, 0.2, 4, 8);
+    missileGeo.rotateX(Math.PI / 2);
+    const missileMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.9 });
+    const leftMissile = new THREE.Mesh(missileGeo, missileMat);
+    leftMissile.position.set(-12.5, 0, -1);
+    airplane.add(leftMissile);
+    const rightMissile = new THREE.Mesh(missileGeo, missileMat);
+    rightMissile.position.set(12.5, 0, -1);
+    airplane.add(rightMissile);
+
+    // 駕駛艙內部框架 (第一人稱視角會看到的座艙罩邊緣)
+    const cockpitFrameGeo = new THREE.BoxGeometry(2, 0.1, 2);
+    const cockpitFrame = new THREE.Mesh(cockpitFrameGeo, new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    cockpitFrame.position.set(0, 0.5, 1.5);
+    airplane.add(cockpitFrame);
+
+    // 降落輪子
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
     const strutMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
-    
     function createWheel(x, z) {
         const group = new THREE.Group();
         const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.3), strutMat);
         strut.position.set(0, -0.65, 0);
         group.add(strut);
-        const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 12);
-        wheelGeo.rotateZ(Math.PI / 2);
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.35, 12), wheelMat);
+        wheel.rotateZ(Math.PI / 2);
         wheel.position.set(0, -1.3, 0);
         group.add(wheel);
         group.position.set(x, -0.5, z);
         return group;
     }
-    airplane.add(createWheel(0, 4.5));   // 前輪
-    airplane.add(createWheel(-2.6, -1)); // 左主輪
-    airplane.add(createWheel(2.6, -1));  // 右主輪
+    airplane.add(createWheel(0, 4.5));
+    airplane.add(createWheel(-2.6, -1));
+    airplane.add(createWheel(2.6, -1));
 
-    // 機尾噴射焰火 (Flame)
+    // 機尾噴射焰火
     const flameGeo = new THREE.ConeGeometry(0.9, 6, 10);
     flameGeo.rotateX(Math.PI / 2);
     const flameMat = new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.85 });
@@ -149,14 +162,11 @@
     exhaustFlame.position.set(0, 0, -11);
     airplane.add(exhaustFlame);
 
-    // 初始放在跑道上
     airplane.position.set(-700, 1.25, -800);
     scene.add(airplane);
 
-    // --- 4. 物理、失速與破碎系統 ---
-    let speed = 0;
-    let verticalVel = 0;
-    let throttle = 0;
+    // --- 4. 物理與破碎系統 ---
+    let speed = 0, verticalVel = 0, throttle = 0;
     let isCrashed = false;
     let fragments = [];
 
@@ -165,7 +175,6 @@
         isCrashed = true;
         scene.remove(airplane);
 
-        // 產生四分五裂的碎片
         for (let i = 0; i < 35; i++) {
             const size = Math.random() * 1.6 + 0.4;
             const frag = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), f16Mat);
@@ -191,7 +200,7 @@
         scene.add(airplane);
     }
 
-    // --- 5. 遊戲控制與主迴圈 ---
+    // --- 5. 搖桿控制與主迴圈 ---
     let gamepadIndex = null;
     window.addEventListener("gamepadconnected", (e) => {
         gamepadIndex = e.gamepad.index;
@@ -207,7 +216,7 @@
         const dt = clock.getDelta();
         const time = clock.getElapsedTime();
 
-        // 动态海浪起伏效果
+        // 海浪動畫
         const pos = waterGeo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const u = pos.getX(i), v = pos.getY(i);
@@ -215,16 +224,14 @@
         }
         waterGeo.attributes.position.needsUpdate = true;
 
-        // 讀取 Switch Pro Controller 搖桿輸入
         if (gamepadIndex !== null) {
             const gp = navigator.getGamepads()[gamepadIndex];
             if (gp) {
-                throttle = THREE.MathUtils.clamp(throttle + (-gp.axes[1] * 0.03), 0, 1); // 左搖桿Y：油門
-                airplane.rotateY(-gp.axes[0] * 0.035); // 左搖桿X：偏航
-                airplane.rotateX(-gp.axes[3] * 0.045); // 右搖桿Y：俯仰
-                airplane.rotateZ(-gp.axes[2] * 0.045); // 右搖桿X：滾轉
-
-                if (gp.buttons[0] && gp.buttons[0].pressed) resetGame(); // B鍵重生
+                throttle = THREE.MathUtils.clamp(throttle + (-gp.axes[1] * 0.03), 0, 1);
+                airplane.rotateY(-gp.axes[0] * 0.035);
+                airplane.rotateX(-gp.axes[3] * 0.045);
+                airplane.rotateZ(-gp.axes[2] * 0.045);
+                if (gp.buttons[0] && gp.buttons[0].pressed) resetGame();
             }
         }
 
@@ -232,11 +239,9 @@
             const targetSpeed = throttle * 4.5;
             speed = THREE.MathUtils.lerp(speed, targetSpeed, 0.05);
 
-            // 噴射焰火根據油門大小動態伸縮
             exhaustFlame.scale.set(0.8 + throttle * 0.6 + Math.random()*0.2, 0.8 + throttle * 0.6 + Math.random()*0.2, throttle * 1.8);
             flameMat.opacity = throttle > 0.05 ? 0.9 : 0.0;
 
-            // 飛行物理、升力與失速下墜
             const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
             const lift = speed * 0.038; 
             const gravity = 0.04;
@@ -245,37 +250,40 @@
             airplane.position.addScaledVector(forwardDir, speed);
             airplane.position.y += verticalVel;
 
-            // 碰撞與跑道滑行檢測
-            const terrainHeight = (airplane.position.x > -4000) ? 0.61 : -2; // 跑道高度 vs 海面高度
-            
+            const terrainHeight = (airplane.position.x > -4000) ? 0.61 : -2;
             if (airplane.position.y <= terrainHeight) {
-                // 如果掉進海裡，或者落地時垂直下墜速度太大（重摔），直接觸發爆炸破碎
                 if (terrainHeight === -2 || verticalVel < -0.25) {
                     triggerCrash();
                 } else {
-                    // 平穩降落或在跑道上滑行：不爆炸，安全貼齊地面
                     airplane.position.y = terrainHeight;
                     verticalVel = 0;
-                    speed *= 0.985; // 地面摩擦力減速
+                    speed *= 0.985; // 跑道滑行減速，不爆炸
                 }
             }
 
-            // 平滑第三人稱相機跟隨
-            const idealOffset = new THREE.Vector3(0, 5, -22).applyQuaternion(airplane.quaternion);
-            const idealLookat = airplane.position.clone().add(new THREE.Vector3(0, 1, 10).applyQuaternion(airplane.quaternion));
-            camera.position.lerp(airplane.position.clone().add(idealOffset), 0.1);
-            camera.lookAt(idealLookat);
+            // --- 第一人稱駕駛艙視角鏡頭設定 ---
+            // 將相機直接放在飛機內部的駕駛艙位置 (略高於機身中心，朝向前方)
+            const cockpitOffset = new THREE.Vector3(0, 1.4, 0.5).applyQuaternion(airplane.quaternion);
+            camera.position.copy(airplane.position).add(cockpitOffset);
+
+            // 相機鏡頭方向與飛機一致，並根據機頭朝向看出去
+            const lookTarget = airplane.position.clone().add(new THREE.Vector3(0, 1.4, 20).applyQuaternion(airplane.quaternion));
+            camera.quaternion.copy(airplane.quaternion);
+
         } else {
-            // 碎片四分五裂散落動畫
+            // 墜毀碎片四散
             fragments.forEach(f => {
                 f.position.add(f.userData.velocity);
                 f.rotation.x += f.userData.rotSpeed.x * 0.02;
                 f.rotation.y += f.userData.rotSpeed.y * 0.02;
-                f.userData.velocity.y -= 0.35; // 重力下墜
+                f.userData.velocity.y -= 0.35;
             });
+
+            // 墜毀時相機停留在原地看著殘骸
+            camera.position.lerp(airplane.position.clone().add(new THREE.Vector3(0, 10, -20)), 0.05);
+            camera.lookAt(airplane.position);
         }
 
-        // 更新介面飛行數據
         document.getElementById('v-speed').innerText = Math.floor(speed * 120);
         document.getElementById('v-alt').innerText = Math.floor(Math.max(0, airplane.position.y) * 3.28);
         document.getElementById('v-throttle').innerText = Math.floor(throttle * 100);
@@ -285,7 +293,6 @@
 
     animate();
 
-    // 視窗大小調整自適應
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
