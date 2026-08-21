@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F-16 第一人稱駕駛艙模擬器 (專業版)</title>
+    <title>F-16 第一人稱駕駛艙模擬器 (機場大廈版)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: 'Courier New', Courier, monospace; user-select: none; }
         
@@ -20,25 +20,22 @@
         .instr-group { display: flex; justify-content: space-around; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px; }
         
         /* 圓形儀表樣式 */
-        .circular-gauge { width: 120px; height: 120px; border-radius: 50%; border: 4px solid #555; background: #000; position: relative; display: flex; justify-content: center; align-items: center; }
-        .gauge-bg { position: absolute; top: 5px; left: 5px; width: 110px; height: 110px; border-radius: 50%; border: 2px solid #333; }
-        .needle { position: absolute; bottom: 50%; left: 50%; width: 2px; height: 45%; background: #ff4444; transform-origin: bottom center; transition: transform 0.1s linear; box-shadow: 0 0 2px #f00; }
-        .gauge-label { position: absolute; bottom: 10px; font-size: 12px; color: #ccc; }
-        .compass-rose { font-size: 10px; color: #888; position: absolute; width: 100%; height: 100%; text-align: center; }
+        .circular-gauge { width: 110px; height: 110px; border-radius: 50%; border: 4px solid #555; background: #000; position: relative; display: flex; justify-content: center; align-items: center; }
+        .gauge-bg { position: absolute; top: 4px; left: 4px; width: 102px; height: 102px; border-radius: 50%; border: 2px solid #333; }
+        .needle { position: absolute; bottom: 50%; left: 50%; width: 2px; height: 45%; background: #ff4444; transform-origin: bottom center; transition: transform 0.1s linear; }
+        .gauge-label { position: absolute; bottom: 8px; font-size: 11px; color: #ccc; }
         
-        /* 導航文字資訊區 */
         #nav-info { font-size: 12px; color: #ddd; line-height: 1.6em; }
 
         /* 控制說明 (右上) */
-        #info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; max-width: 300px; z-index: 10;}
+        #info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; border: 1px solid #555; max-width: 300px; z-index: 10;}
         #info h2 { margin: 0 0 8px 0; font-size: 16px; color: #00ffcc; }
         #info p { margin: 3px 0; font-size: 12px; color: #ccc; }
         .red { color: #ff4444; font-weight: bold; } 
         .green { color: #00ffcc; font-weight: bold; }
 
-        /* 駕駛艙疊加層 (邊框) */
-        #cockpit-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.5) 100%); pointer-events: none; z-index: 5; }
-        
+        /* 駕駛艙邊框遮罩 */
+        #cockpit-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 65%, rgba(0,0,0,0.6) 100%); pointer-events: none; z-index: 5; }
     </style>
     <!-- 引入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -51,14 +48,13 @@
     <h2>F-16 第一人稱駕駛艙模擬器</h2>
     <p id="controller-status" class="red">狀態: 等待手把連線 (請按任意按鍵)</p>
     <p><strong>控制說明：</strong></p>
-    <p>• 左搖桿上下：油門 (Throttle)</p>
-    <p>• 左搖桿左右：偏航 (Rudder/Yaw)</p>
-    <p>• 右搖桿上下：俯仰 (Pitch - 推桿向下)</p>
+    <p>• 左搖桿上下：油門 (推回會自動減速)</p>
+    <p>• 左搖桿左右：偏航 (Yaw)</p>
+    <p>• 右搖桿上下：俯仰 (Pitch)</p>
     <p>• 右搖桿左右：滾轉 (Roll)</p>
     <p>• B 鍵：重置 (Reset)</p>
 </div>
 
-<!-- 主飛行數據顯示 (HUD) -->
 <div id="hud">
     <h2>FLIGHT DATA</h2>
     <div class="data-row"><span class="label">速度 (IAS):</span><span class="value"><span id="v-speed">0</span> knots</span></div>
@@ -67,124 +63,288 @@
     <div class="data-row"><span class="label">垂直速 (VS):</span><span class="value"><span id="v-vs">0</span> ft/min</span></div>
 </div>
 
-<!-- 新增儀表板面板 -->
 <div id="instruments-panel">
     <h3>飛行儀表與導航</h3>
     <div class="instr-group">
-        <!-- 人造水平儀 (Attitude Indicator) -->
-        <div class="circular-gauge" title="人造水平儀">
-            <div class="gauge-bg" style="background: linear-gradient(180deg, #87ceeb 0%, #87ceeb 50%, #cd853f 50%, #cd853f 100%);"></div>
-            <div id="instrument-attitude" class="needle" style="height: 60%; top: 20%; transform: rotate(0deg); box-shadow: none; background: white; width: 4px; margin-left: -2px;"></div>
-            <!-- 飛機參考圖示 -->
-            <div style="position:absolute; top:50%; left:50%; width:40px; height:2px; background:yellow; margin-top:-1px; margin-left:-20px; z-index:2;"></div>
-             <div style="position:absolute; top:50%; left:50%; width:2px; height:20px; background:yellow; margin-top:-10px; margin-left:-1px; z-index:2;"></div>
-            <div class="gauge-label">姿態儀 (P/R)</div>
+        <!-- 姿態儀 -->
+        <div class="circular-gauge">
+            <div class="gauge-bg" style="background: linear-gradient(180deg, #4682b4 0%, #4682b4 50%, #8b4513 50%, #8b4513 100%);"></div>
+            <div id="instrument-attitude" class="needle" style="height: 50%; top: 25%; background: white; width: 4px; margin-left: -2px;"></div>
+            <div style="position:absolute; top:50%; left:50%; width:30px; height:2px; background:yellow; margin-top:-1px; margin-left:-15px;"></div>
+            <div class="gauge-label">姿態儀</div>
         </div>
-        <!-- 航向指示器 (Heading Indicator) -->
-        <div class="circular-gauge" title="航向指示器">
-            <div class="gauge-bg">
-                <div class="compass-rose" style="transform: rotate(0deg);" id="instrument-heading-rose">
-                    <div style="position:absolute; top:0; left:50%; margin-left:-5px; color:red;">N</div>
-                    <div style="position:absolute; bottom:0; left:50%; margin-left:-5px;">S</div>
-                    <div style="position:absolute; right:0; top:50%; margin-top:-5px;">E</div>
-                    <div style="position:absolute; left:0; top:50%; margin-top:-5px;">W</div>
-                    <div style="position:absolute; top:15%; left:15%;">33</div>
-                    <div style="position:absolute; top:15%; right:15%;">03</div>
-                </div>
-            </div>
-            <div class="needle" id="instrument-heading-needle" style="transform: rotate(0deg);"></div>
-            <!-- 中心固定點 -->
-            <div style="position:absolute; top:50%; left:50%; width:6px; height:6px; background:#333; border-radius:50%; margin-top:-3px; margin-left:-3px;"></div>
-             <div style="position:absolute; top:10px; left:50%; width:2px; height:10px; background:white; margin-left:-1px;"></div>
+        <!-- 航向儀 -->
+        <div class="circular-gauge">
+            <div class="gauge-bg" style="border: 2px solid #555; background: #111;"></div>
+            <div id="instrument-heading-needle" class="needle" style="background: #00ffcc;"></div>
+            <div style="position:absolute; top:50%; left:50%; width:6px; height:6px; background:#fff; border-radius:3px; margin:-3px 0 0 -3px;"></div>
             <div class="gauge-label">航向 (HDG)</div>
         </div>
     </div>
-    <!-- GPS 導航資訊 -->
     <div id="nav-info">
-        <strong>導航 (目標: Beta 機場):</strong><br>
-        方位偏移: <span id="nav-deviation" class="green">--</span> 度<br>
+        <strong>導航 (目標機場):</strong><br>
+        相對方位: <span id="nav-deviation" class="green">--</span> 度<br>
         距離: <span id="nav-distance">--</span> 公里
     </div>
 </div>
 
 <script>
-    // --- 1. 場景與渲染器設定 ---
+    // --- 1. 場景與渲染器 ---
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xa0c5e8);
-    scene.fog = new THREE.FogExp2(0xa0c5e8, 0.0007);
+    scene.fog = new THREE.FogExp2(0xa0c5e8, 0.0006);
 
-    // 設置第一人稱視角相機 (更廣角，Near plane 極小以貼近機身)
-    const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
+    const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 15000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 光照
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(500, 800, 500);
     dirLight.castShadow = true;
-    dirLight.shadow.camera.far = 2000;
     scene.add(dirLight);
 
-    // --- 2. 環境：海浪與跑道 ---
-    const waterGeo = new THREE.PlaneGeometry(12000, 12000, 64, 64);
-    waterGeo.rotateX(-Math.PI / 2);
-    const waterMat = new THREE.MeshStandardMaterial({ color: 0x1e6091, roughness: 0.1, metalness: 0.8 });
-    const water = new THREE.Mesh(waterGeo, waterMat);
+    // --- 2. 環境：海面、陸地、跑道與航空大廈群 ---
+    const water = new THREE.Mesh(
+        new THREE.PlaneGeometry(15000, 15000, 32, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x1e6091, roughness: 0.1, metalness: 0.8 })
+    );
     water.position.y = -2;
     scene.add(water);
 
-    const landGeo = new THREE.PlaneGeometry(6000, 12000);
-    landGeo.rotateX(-Math.PI / 2);
-    const landMat = new THREE.MeshStandardMaterial({ color: 0x3b7a57, roughness: 0.9 });
-    const land = new THREE.Mesh(landGeo, landMat);
-    land.position.set(-4000, 0, 0);
+    const land = new THREE.Mesh(
+        new THREE.PlaneGeometry(8000, 15000).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x3b7a57, roughness: 0.9 })
+    );
+    land.position.set(-4500, 0, 0);
     scene.add(land);
 
-    const runwayGeo = new THREE.PlaneGeometry(90, 2500);
-    runwayGeo.rotateX(-Math.PI / 2);
-    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
-    const runway = new THREE.Mesh(runwayGeo, runwayMat);
+    // 跑道
+    const runway = new THREE.Mesh(
+        new THREE.PlaneGeometry(90, 3000).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 })
+    );
     runway.position.set(-700, 0.61, 0);
     scene.add(runway);
 
-    // --- 3. 精緻 F-16 模型建構 ---
+    // 建立 3D 航空大廈與航廈塔台（座落於跑道旁）
+    const buildingMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4, metalness: 0.5 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x224466, roughness: 0.1, metalness: 0.9 });
+
+    function createAirportTerminal(x, z) {
+        const group = new THREE.Group();
+        // 主航廈大樓
+        const mainBuilding = new THREE.Mesh(new THREE.BoxGeometry(120, 40, 250), buildingMat);
+        mainBuilding.position.set(0, 20, 0);
+        group.add(mainBuilding);
+
+        // 航廈玻璃窗面
+        const glassFront = new THREE.Mesh(new THREE.PlaneGeometry(110, 30), glassMat);
+        glassFront.position.set(0, 15, 125.1);
+        group.add(glassFront);
+
+        // 機場塔台 (航管塔台)
+        const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 70, 12), buildingMat);
+        towerBase.position.set(80, 35, 0);
+        group.add(towerBase);
+
+        const towerCabin = new THREE.Mesh(new THREE.CylinderGeometry(14, 12, 15, 12), glassMat);
+        towerCabin.position.set(80, 75, 0);
+        group.add(towerCabin);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+    }
+    createAirportTerminal(-850, 400); // 在跑道側邊建立航空大廈與塔台
+
+    // 目標第二機場 (用於導航)
+    const targetAirportPos = new THREE.Vector3(3000, 0, 4000);
+    const targetAirportMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(200, 5, 200),
+        new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true })
+    );
+    targetAirportMesh.position.copy(targetAirportPos);
+    scene.add(targetAirportMesh);
+
+    // --- 3. F-16 戰鬥機模型 ---
     const airplane = new THREE.Group();
-    const f16Mat = new THREE.MeshStandardMaterial({ color: 0x6e757c, roughness: 0.4, metalness: 0.6 });
+    const f16Mat = new THREE.MeshStandardMaterial({ color: 0x6e757c, roughness: 0.35, metalness: 0.65 });
 
-    // 機身主體
-    const fuselageGeo = new THREE.ConeGeometry(1.8, 18, 12);
-    fuselageGeo.rotateX(Math.PI / 2);
-    const fuselage = new THREE.Mesh(fuselageGeo, f16Mat);
-    airplane.add(fuselage);
-
-    // 主機翼
-    const wingGeo = new THREE.BoxGeometry(25, 0.3, 5.5);
-    const wings = new THREE.Mesh(wingGeo, f16Mat);
-    airplane.add(wings);
-
-    // 垂直尾翼
-    const tailGeo = new THREE.BoxGeometry(0.3, 5.5, 4.2);
-    const tail = new THREE.Mesh(tailGeo, f16Mat);
-    tail.position.set(0, 2.7, -7.5);
-    tail.rotation.x = -0.3;
+    airplane.add(new THREE.Mesh(new THREE.ConeGeometry(1.8, 18, 12).rotateX(Math.PI / 2), f16Mat));
+    airplane.add(new THREE.Mesh(new THREE.BoxGeometry(25, 0.3, 5.5), f16Mat));
+    
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.5, 4.2), f16Mat);
+    tail.position.set(0, 2.7, -7.5); tail.rotation.x = -0.3;
     airplane.add(tail);
 
-    // 機腹進氣道
-    const intakeGeo = new THREE.BoxGeometry(2.2, 1.5, 6);
-    const intake = new THREE.Mesh(intakeGeo, f16Mat);
-    intake.position.set(0, -1.2, 2);
-    airplane.add(intake);
+    // 進氣道與掛載
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 6), f16Mat);
+    intake.position.set(0, -1.2, 2); airplane.add(intake);
 
-    // 機翼下掛載 (模擬)
-    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 5, 8);
-    tankGeo.rotateX(Math.PI / 2);
+    const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 5, 8).rotateX(Math.PI / 2);
     const tankMat = new THREE.MeshStandardMaterial({ color: 0x555a60 });
     const leftTank = new THREE.Mesh(tankGeo, tankMat); leftTank.position.set(-5, -1.2, 0); airplane.add(leftTank);
     const rightTank = new THREE.Mesh(tankGeo, tankMat); rightTank.position.set(5, -1.2, 0); airplane.add(rightTank);
 
-    // 駕駛艙內部框架 (第一人稱視覺邊框)
-    const cockpitGeo = new THREE.BoxGeometry(2.2, 0.8, 0.1);
-    const cockpit = new THREE.Mesh
+    // 輪子
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    const strutMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+    function createWheel(x, z) {
+        const g = new THREE.Group();
+        g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.3), strutMat).translateY(-0.65));
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.35, 12).rotateZ(Math.PI / 2), wheelMat);
+        w.position.set(0, -1.3, 0); g.add(w);
+        g.position.set(x, -0.5, z);
+        return g;
+    }
+    airplane.add(createWheel(0, 4.5));
+    airplane.add(createWheel(-2.6, -1));
+    airplane.add(createWheel(2.6, -1));
+
+    // 噴射焰火
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.85 });
+    const exhaustFlame = new THREE.Mesh(new THREE.ConeGeometry(0.9, 6, 10).rotateX(Math.PI / 2), flameMat);
+    exhaustFlame.position.set(0, 0, -11);
+    airplane.add(exhaustFlame);
+
+    airplane.position.set(-700, 1.25, -800);
+    scene.add(airplane);
+
+    // --- 4. 物理與狀態 ---
+    let speed = 0, verticalVel = 0, throttle = 0;
+    let isCrashed = false;
+    let fragments = [];
+
+    function triggerCrash() {
+        if (isCrashed) return;
+        isCrashed = true;
+        scene.remove(airplane);
+        for (let i = 0; i < 35; i++) {
+            const size = Math.random() * 1.6 + 0.4;
+            const frag = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), f16Mat);
+            frag.position.copy(airplane.position);
+            frag.userData = {
+                velocity: new THREE.Vector3((Math.random() - 0.5) * 20, Math.random() * 18 + 2, (Math.random() - 0.5) * 20),
+                rotSpeed: new THREE.Vector3(Math.random() * 15, Math.random() * 15, Math.random() * 15)
+            };
+            fragments.push(frag);
+            scene.add(frag);
+        }
+    }
+
+    function resetGame() {
+        isCrashed = false;
+        fragments.forEach(f => scene.remove(f));
+        fragments = [];
+        airplane.position.set(-700, 1.25, -800);
+        airplane.rotation.set(0, 0, 0);
+        speed = 0; verticalVel = 0; throttle = 0;
+        scene.add(airplane);
+    }
+
+    let gamepadIndex = null;
+    window.addEventListener("gamepadconnected", (e) => {
+        gamepadIndex = e.gamepad.index;
+        const s = document.getElementById('controller-status');
+        s.innerText = "已連線: " + e.gamepad.id; s.className = "green";
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = clock.getElapsedTime();
+
+        if (gamepadIndex !== null) {
+            const gp = navigator.getGamepads()[gamepadIndex];
+            if (gp) {
+                throttle = THREE.MathUtils.clamp(throttle + (-gp.axes[1] * 0.03), 0, 1);
+                airplane.rotateY(-gp.axes[0] * 0.035);
+                airplane.rotateX(-gp.axes[3] * 0.045);
+                airplane.rotateZ(-gp.axes[2] * 0.045);
+                if (gp.buttons[0] && gp.buttons[0].pressed) resetGame();
+            }
+        }
+
+        if (!isCrashed) {
+            // 空氣阻力物理：當油門減少時，速度會自動因阻力下降
+            const targetSpeed = throttle * 4.5;
+            speed = THREE.MathUtils.lerp(speed, targetSpeed, throttle > (speed / 4.5) ? 0.05 : 0.02);
+
+            exhaustFlame.scale.set(0.8 + throttle * 0.6, 0.8 + throttle * 0.6, throttle * 1.8);
+            flameMat.opacity = throttle > 0.05 ? 0.9 : 0.0;
+
+            const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+            const lift = speed * 0.038; 
+            const gravity = 0.04;
+            verticalVel += (forwardDir.y * speed * 0.085 + lift - gravity) * 0.1;
+            
+            airplane.position.addScaledVector(forwardDir, speed);
+            airplane.position.y += verticalVel;
+
+            const terrainHeight = (airplane.position.x > -4500) ? 0.61 : -2;
+            if (airplane.position.y <= terrainHeight) {
+                if (terrainHeight === -2 || verticalVel < -0.25) {
+                    triggerCrash();
+                } else {
+                    airplane.position.y = terrainHeight;
+                    verticalVel = 0;
+                    speed *= 0.98; // 地面滑行減速
+                }
+            }
+
+            // 第一人稱駕駛艙視角鏡頭
+            camera.position.copy(airplane.position).add(new THREE.Vector3(0, 1.4, 0.5).applyQuaternion(airplane.quaternion));
+            camera.quaternion.copy(airplane.quaternion);
+
+        } else {
+            fragments.forEach(f => {
+                f.position.add(f.userData.velocity);
+                f.rotation.x += f.userData.rotSpeed.x * 0.02;
+                f.userData.velocity.y -= 0.35;
+            });
+            camera.position.lerp(airplane.position.clone().add(new THREE.Vector3(0, 10, -20)), 0.05);
+            camera.lookAt(airplane.position);
+        }
+
+        // 更新儀表板數值
+        document.getElementById('v-speed').innerText = Math.floor(speed * 120);
+        document.getElementById('v-alt').innerText = Math.floor(Math.max(0, airplane.position.y) * 3.28);
+        document.getElementById('v-throttle').innerText = Math.floor(throttle * 100);
+        document.getElementById('v-vs').innerText = Math.floor(verticalVel * 600);
+
+        // 姿態儀與航向指針計算
+        const pitchAngle = airplane.rotation.x * (180 / Math.PI);
+        const rollAngle = airplane.rotation.z * (180 / Math.PI);
+        document.getElementById('instrument-attitude').style.transform = `translate(-50%, 0) rotate(${rollAngle}deg) translateY(${pitchAngle}px)`;
+        
+        let heading = (airplane.rotation.y * (180 / Math.PI)) % 360;
+        if (heading < 0) heading += 360;
+        document.getElementById('instrument-heading-needle').style.transform = `translate(-50%, 0) rotate(${-heading}deg)`;
+
+        // GPS 導航計算 (第二機場)
+        const toTarget = new THREE.Vector3().subVectors(targetAirportPos, airplane.position);
+        const distKm = (toTarget.length() / 100).toFixed(1);
+        toTarget.y = 0; toTarget.normalize();
+        const planeDir = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+        planeDir.y = 0; planeDir.normalize();
+        const angleDiff = Math.round(Math.atan2(toTarget.x, toTarget.z) * (180 / Math.PI) - Math.atan2(planeDir.x, planeDir.z) * (180 / Math.PI));
+
+        document.getElementById('nav-deviation').innerText = angleDiff;
+        document.getElementById('nav-distance').innerText = distKm;
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
