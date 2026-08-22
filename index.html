@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>F-16 第一人稱模擬器 - 雙機場導航版</title>
+    <title>F-16 第一人稱模擬器 - 向前飛行版</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: 'Courier New', Courier, monospace; user-select: none; }
         #hud, #nav-panel { position: absolute; background: rgba(0, 20, 40, 0.85); border: 1px solid #00ffcc; padding: 12px; pointer-events: none; border-radius: 8px; font-size: 14px; text-shadow: 0 0 5px #00ffcc; z-index: 10; }
@@ -39,7 +39,7 @@
     scene.background = new THREE.Color(0x87CEEB);
     scene.fog = new THREE.FogExp2(0x87CEEB, 0.0005);
 
-    // 相機：使用第一人稱視角 (較廣角 85 度)
+    // 相機：第一人稱視角
     const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 20000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -74,7 +74,7 @@
     runway.position.set(-700, 0.61, 0);
     scene.add(runway);
 
-    // 3. 第二機場 (遠處導航目的地，帶有跑道與標示物)
+    // 3. 第二機場 (遠處導航目的地)
     const targetAirportPos = new THREE.Vector3(3500, 0, 4000);
     const targetRunway = new THREE.Mesh(
         new THREE.PlaneGeometry(120, 3500).rotateX(-Math.PI / 2),
@@ -84,7 +84,6 @@
     targetRunway.position.y = 0.65;
     scene.add(targetRunway);
 
-    // 第二機場標示塔 (讓遠處看得到目標)
     const targetTower = new THREE.Mesh(
         new THREE.BoxGeometry(30, 150, 30),
         new THREE.MeshStandardMaterial({ color: 0xff3333 })
@@ -111,10 +110,10 @@
         // 讀取手把
         const gp = navigator.getGamepads()[0];
         if (gp) {
-            // 油門：放開搖桿自動歸零 (Throttle Idle)
+            // 油門：放開搖桿自動歸零
             throttle = Math.abs(gp.axes[1]) > 0.1 ? THREE.MathUtils.clamp(-gp.axes[1], 0, 1) : 0;
             
-            // 操控：低靈敏度平滑轉向 (乘 0.012)
+            // 操控：低靈敏度平滑轉向
             airplane.rotateX(-gp.axes[3] * 0.012);
             airplane.rotateZ(-gp.axes[2] * 0.012);
             airplane.rotateY(-gp.axes[0] * 0.012);
@@ -123,36 +122,35 @@
         // 速度與空氣阻力平滑
         speed = THREE.MathUtils.lerp(speed, throttle * 9, 0.02);
 
-        // 前進移動
-        const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+        // 【修正】改用負 Z 軸 (0, 0, -1) 作為向前飛行的標準方向
+        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(airplane.quaternion);
         airplane.position.add(dir.multiplyScalar(speed));
 
-        // 擬真重力與失速下墜機制 (避免衝上天掉不下來)
+        // 擬重力與失速下墜機制
         airplane.position.y -= (0.04 + (1 - throttle) * 0.06);
         if (airplane.position.y < 1.2) airplane.position.y = 1.2;
 
         // GPS 導航計算 (指向第二機場)
-        const dist = airplane.position.distanceTo(targetAirportPos) / 100; // 換算成約略公里
+        const dist = airplane.position.distanceTo(targetAirportPos) / 100;
         const dirToTarget = new THREE.Vector3().subVectors(targetAirportPos, airplane.position).normalize();
-        const planeForward = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
+        const planeForward = new THREE.Vector3(0, 0, -1).applyQuaternion(airplane.quaternion); // 同步改用向前向量計算夾角
         const angle = Math.round(planeForward.angleTo(dirToTarget) * 180 / Math.PI);
 
         // 更新 HUD 介面
         document.getElementById('s').innerText = Math.floor(speed * 110);
-        document.getElementById('a').innerText = Math.floor(airplane.position.y * 3.28); // 轉成英呎
+        document.getElementById('a').innerText = Math.floor(airplane.position.y * 3.28);
         document.getElementById('t').innerText = Math.floor(throttle * 100);
         document.getElementById('nav-dev').innerText = angle;
         document.getElementById('nav-dist').innerText = dist.toFixed(1);
 
-        // ** 第一人稱駕駛艙視角鏡頭 **
-        camera.position.copy(airplane.position).add(new THREE.Vector3(0, 0.8, 0.3).applyQuaternion(airplane.quaternion));
+        // 第一人稱駕駛艙視角鏡頭 (保持在機頭前方一點點看出去)
+        camera.position.copy(airplane.position).add(new THREE.Vector3(0, 0.8, -0.3).applyQuaternion(airplane.quaternion));
         camera.quaternion.copy(airplane.quaternion);
 
         renderer.render(scene, camera);
     }
     animate();
 
-    // 視窗縮放適應
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
