@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>F-16 穩定版飛行模擬器</title>
+    <title>F-16 穩定版飛行模擬器 - 完整版</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
         #hud, #nav-panel { position: absolute; background: rgba(0,0,0,0.6); border: 1px solid #444; padding: 10px; pointer-events: none; }
@@ -22,12 +22,12 @@
 
 <div id="nav-panel">
     <strong>GPS 導航 (目標機場)</strong><br>
-    方位偏移: <span id="nav-dev" class="val">0</span> 度<br>
+    方位偏差: <span id="nav-dev" class="val">0</span> 度<br>
     距離: <span id="nav-dist" class="val">0</span> 公里
 </div>
 
 <script>
-    // 場景設定
+    // 1. 場景初始化
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 20000);
@@ -35,49 +35,60 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 飛機
+    // 2. 建立場景物件
+    // 地面
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshStandardMaterial({color: 0x3b7a57}));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    // 跑道
+    const runway = new THREE.Mesh(new THREE.PlaneGeometry(100, 5000), new THREE.MeshStandardMaterial({color: 0x333333}));
+    runway.rotation.x = -Math.PI / 2;
+    runway.position.y = 0.1;
+    scene.add(runway);
+
+    // 3. 建立 F-16 飛機模型 (簡單外型)
     const airplane = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 10), new THREE.MeshStandardMaterial({color: 0x555555}));
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 10), new THREE.MeshStandardMaterial({color: 0x666666}));
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(15, 0.5, 4), new THREE.MeshStandardMaterial({color: 0x666666}));
     airplane.add(body);
+    airplane.add(wing);
+    airplane.position.set(0, 5, 0); // 起飛高度
     scene.add(airplane);
     
     // 燈光
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(100, 100, 100);
+    scene.add(light);
     
-    // 飛行物理變數
-    let speed = 0, throttle = 0, pitch = 0, roll = 0, yaw = 0;
+    // 4. 物理變數
+    let speed = 0, throttle = 0;
     const targetAirport = new THREE.Vector3(2000, 0, 2000);
 
     function animate() {
         requestAnimationFrame(animate);
 
-        // 讀取手把
         const gp = navigator.getGamepads()[0];
         if(gp) {
-            // 油門控制：鬆開搖桿歸零 (Throttle Idle)
+            // 油門：放開搖桿自動歸零
             throttle = Math.abs(gp.axes[1]) > 0.1 ? THREE.MathUtils.clamp(-gp.axes[1], 0, 1) : 0;
             
-            // 操控修正：降低靈敏度 (乘上 0.015) 避免亂翻
-            pitch = -gp.axes[3] * 0.015;
-            roll = -gp.axes[2] * 0.015;
-            yaw = -gp.axes[0] * 0.015;
+            // 操控：降低靈敏度 (乘 0.015) 讓飛行更穩
+            airplane.rotateX(-gp.axes[3] * 0.015);
+            airplane.rotateZ(-gp.axes[2] * 0.015);
+            airplane.rotateY(-gp.axes[0] * 0.015);
         }
 
-        // 速度與引擎物理
-        speed = THREE.MathUtils.lerp(speed, throttle * 8, 0.02); // 加速與空氣阻力平滑
+        // 速度物理：根據油門加減速
+        speed = THREE.MathUtils.lerp(speed, throttle * 8, 0.02);
         
-        // 飛行姿態
-        airplane.rotateX(pitch);
-        airplane.rotateZ(roll);
-        airplane.rotateY(yaw);
-        
-        // 移動
+        // 移動與重力
         const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(airplane.quaternion);
         airplane.position.add(dir.multiplyScalar(speed));
         
-        // 修正衝上天掉不下來的問題：增加重力影響與失速機制
-        airplane.position.y -= 0.05; 
-        if(airplane.position.y < 0) airplane.position.y = 0;
+        // 增加重力感：速度越慢，下墜越快
+        airplane.position.y -= (0.05 + (1 - throttle) * 0.05); 
+        if(airplane.position.y < 0.5) airplane.position.y = 0.5;
 
         // GPS 計算
         const dist = airplane.position.distanceTo(targetAirport) / 100;
@@ -85,14 +96,15 @@
         const planeForward = new THREE.Vector3(0,0,1).applyQuaternion(airplane.quaternion);
         const angle = Math.round(planeForward.angleTo(dirToTarget) * 180 / Math.PI);
 
-        // 更新 UI
+        // UI 更新
         document.getElementById('s').innerText = Math.floor(speed * 100);
         document.getElementById('a').innerText = Math.floor(airplane.position.y * 10);
         document.getElementById('t').innerText = Math.floor(throttle * 100);
         document.getElementById('nav-dev').innerText = angle;
         document.getElementById('nav-dist').innerText = dist.toFixed(1);
 
-        camera.position.copy(airplane.position).add(new THREE.Vector3(0, 2, 5));
+        // 跟隨視角
+        camera.position.copy(airplane.position).add(new THREE.Vector3(0, 5, 15));
         camera.lookAt(airplane.position);
         renderer.render(scene, camera);
     }
